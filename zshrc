@@ -77,7 +77,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(docker docker-compose git-auto-fetch gitfast mosh rust git-prompt git zsh-autosuggestions zsh-syntax-highlighting zsh-completions zsh-vi-mode) # zsh-vim-mode)
+plugins=(docker docker-compose git-auto-fetch gitfast mosh rust git-prompt git zsh-autosuggestions zsh-syntax-highlighting zsh-completions zsh-vi-mode brew) # zsh-vim-mode)
 autoload -U compinit && compinit
 
 # ZSH-VIM-MODE
@@ -159,3 +159,23 @@ alias zln='zmv -L'
 
 alias luamake=/Users/chris/tools/lua-language-server/3rd/luamake/luamake
 
+# Switch Nvim versions
+#
+alias nvim-lazy="NVIM_APPNAME=LazyVim nvim"
+alias nvim-kick="NVIM_APPNAME=kickstart nvim"
+alias nvim-chad="NVIM_APPNAME=NvChad nvim"
+alias nvim-astro="NVIM_APPNAME=AstroNvim nvim"
+
+function nvims() {
+  items=("default" "kickstart" "LazyVim" "NvChad" "AstroNvim")
+  config=$(printf "%s\n" "${items[@]}" | fzf --prompt=" Neovim Config  " --height=~50% --layout=reverse --border --exit-0)
+  if [[ -z $config ]]; then
+    echo "Nothing selected"
+    return 0
+  elif [[ $config == "default" ]]; then
+    config=""
+  fi
+  NVIM_APPNAME=$config nvim $@
+}
+
+bindkey -s ^a "nvims\n"
