@@ -169,6 +169,9 @@ export PATH="/usr/local/opt/sphinx-doc/bin:$PATH"
 # speed up midnight commander 
 alias mc="mc --nosubshell"
 
+# Setup lazygit config with Catppuccin
+alias lazygit='lazygit --use-config-file="/Users/chris/.config/lazygit/config.yml,/Users/chris/.config/lazygit/catppuccin/mocha/blue.yml"'
+
 # opam configuration
 [[ ! -r /Users/chris/.opam/opam-init/init.zsh ]] || source /Users/chris/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
 
