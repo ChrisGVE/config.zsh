@@ -125,11 +125,14 @@ alias ohmyzsh="nvim ~/.oh-my-zsh"
 # add custom bin path and .local/bin
 export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
 
-# Add lua-language-server path
+# Add lua-language-server:w path
 export PATH="$HOME/tools/lua-language-server/bin/macOS:$PATH"
 
 # Add gnubin path to use `sed`
 export PATH="/use/local/opt/gnu-sed/libexec/gnubin:$PATH"
+
+# Add Homebrew sbin path
+export PATH="/usr/local/sbin:$PATH"
 
 # Override exit to prevent exiting the last pane in tmux
 exit() {
@@ -159,23 +162,28 @@ alias zln='zmv -L'
 
 alias luamake=/Users/chris/tools/lua-language-server/3rd/luamake/luamake
 
-# Switch Nvim versions
-#
-alias nvim-kick="NVIM_APPNAME=kickstart nvim"
-alias nvim-chad="NVIM_APPNAME=NvChad nvim"
-alias nvim-astro="NVIM_APPNAME=AstroNvim nvim"
-alias nvim-lunar="NVIM_APPNAME=LunarVim nvim"
+export PATH="/usr/local/opt/openjdk/bin:$PATH"
+export PATH="/usr/local/opt/dart@2.18/bin:$PATH"
+export PATH="/usr/local/opt/sphinx-doc/bin:$PATH"
 
-function nvims() {
-  items=("default" "kickstart" "LunarVim" "NvChad" "AstroNvim")
-  config=$(printf "%s\n" "${items[@]}" | fzf --prompt=" Neovim Config  " --height=~50% --layout=reverse --border --exit-0)
-  if [[ -z $config ]]; then
-    echo "Nothing selected"
-    return 0
-  elif [[ $config == "default" ]]; then
-    config=""
-  fi
-  NVIM_APPNAME=$config nvim $@
-}
+# speed up midnight commander 
+alias mc="mc --nosubshell"
 
-bindkey -s ^a "nvims\n"
+# opam configuration
+[[ ! -r /Users/chris/.opam/opam-init/init.zsh ]] || source /Users/chris/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
+
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+__conda_setup="$('/usr/local/Caskroom/miniconda/base/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "/usr/local/Caskroom/miniconda/base/etc/profile.d/conda.sh" ]; then
+        . "/usr/local/Caskroom/miniconda/base/etc/profile.d/conda.sh"
+    else
+        export PATH="/usr/local/Caskroom/miniconda/base/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+# <<< conda initialize <<<
+
