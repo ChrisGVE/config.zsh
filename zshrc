@@ -172,8 +172,19 @@ alias mc="mc --nosubshell"
 # Setup lazygit config with Catppuccin
 alias lazygit='lazygit --use-config-file="/Users/chris/.config/lazygit/config.yml,/Users/chris/.config/lazygit/catppuccin/mocha/blue.yml"'
 
+# Enable/Disable Gatekeeper 
+# alias enable_gatekeeper="sudo spctl --master-enable"  ## Deprecated
+alias disable_gatekeeper="sudo spctl --master-disable"
+
 # opam configuration
 [[ ! -r /Users/chris/.opam/opam-init/init.zsh ]] || source /Users/chris/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
+
+# Setup for MySQL
+#
+export PATH="/usr/local/opt/mysql@8.4/bin:$PATH"
+export LDFLAGS="-L/usr/local/opt/mysql@8.4/lib"
+export CPPFLAGS="-I/usr/local/opt/mysql@8.4/include"
+export PKG_CONFIG_PATH="/usr/local/opt/mysql@8.4/lib/pkgconfig"
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
