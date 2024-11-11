@@ -229,9 +229,6 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-# Setup asdf
-. /usr/local/opt/asdf/libexec/asdf.sh
-
 # Setup qmk
 alias cdqmk="cd ~/dev/Keyboard/qmk/"
 alias cdkeychron="cd ~/dev/Keyboard/keychron/"
