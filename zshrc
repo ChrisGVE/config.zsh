@@ -231,7 +231,6 @@ unset __conda_setup
 
 # Setup qmk
 alias cdqmk="cd ~/dev/Keyboard/qmk/"
-alias cdkeychron="cd ~/dev/Keyboard/keychron/"
 
 source ~/.config/themes/zsh-syntax-highlighting/themes/catppuccin_mocha-zsh-syntax-highlighting.zsh
 source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
