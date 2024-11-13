@@ -150,6 +150,9 @@ fi
 #
 alias zshconfig="nvim $ZDOTDIR/zshrc"
 
+# add alias to configure nvim
+alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim"
+
 # add custom bin path and .local/bin
 export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
 
