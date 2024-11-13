@@ -229,8 +229,11 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-# Setup qmk
+# Go to qmk folder and setup the config
 alias cdqmk="cd ~/dev/Keyboard/qmk/"
+alias qmkMain="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_firmware"
+alias qmkKeychron="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_keychron"
+alias qmkNeo="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_neo"
 
 source ~/.config/themes/zsh-syntax-highlighting/themes/catppuccin_mocha-zsh-syntax-highlighting.zsh
 source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
