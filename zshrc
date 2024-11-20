@@ -157,7 +157,7 @@ alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/n
 export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
 
 # Add gnubin path to use `sed`
-export PATH="/use/local/opt/gnu-sed/libexec/gnubin:$PATH"
+export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"
 
 # Add Homebrew sbin path
 export PATH="/usr/local/sbin:$PATH"
@@ -237,6 +237,9 @@ alias cdqmk="cd ~/dev/Keyboard/qmk/"
 alias qmkMain="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_firmware"
 alias qmkKeychron="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_keychron"
 alias qmkNeo="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_neo"
+
+# setup zoxide
+eval "$(zoxide init zsh)"
 
 source ~/.config/themes/zsh-syntax-highlighting/themes/catppuccin_mocha-zsh-syntax-highlighting.zsh
 source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
