@@ -92,10 +92,9 @@ COMPLETION_WAITING_DOTS="true"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(1password aliases autoupdate brew common-aliases conda conda-env dash docker docker-compose \
-         fzf gh git gitfast gnu-utils kitty macos mosh rust terraform tmux zsh-autosuggestions \
-         zsh-completions zsh-vi-mode \
-         ) # zsh-vim-mode)
+# common-aliased fzf
+plugins=(1password aliases autoupdate dash git gitfast mosh rust zsh-autosuggestions zsh-completions zsh-vi-mode) 
+
 autoload -U compinit && compinit
 
 ZSH_CUSTOM_AUTOUPDATE_QUIET=true
@@ -139,9 +138,6 @@ export FZF_DEFAULT_OPTS=" \
 if [[ -n $SSH_CONNECTION ]]; then
     export EDITOR='vim'
 fi
-
-# Compilation flags
-# export ARCHFLAGS="-arch x86_64"
 
 # Set personal aliases, overriding those provided by oh-my-zsh libs,
 # plugins, and themes. Aliases can be placed here, though oh-my-zsh
@@ -194,6 +190,9 @@ export PATH="/usr/local/opt/openjdk/bin:$PATH"
 export PATH="/usr/local/opt/dart@2.18/bin:$PATH"
 export PATH="/usr/local/opt/sphinx-doc/bin:$PATH"
 
+# Adding path to user bin
+export PATH="$HOME/bin:$HOME/Scripts:$PATH"
+
 # speed up midnight commander 
 alias mc="mc --nosubshell"
 
@@ -236,10 +235,41 @@ unset __conda_setup
 alias cdqmk="cd ~/dev/Keyboard/qmk/"
 alias qmkMain="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_firmware"
 alias qmkKeychron="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_keychron"
-alias qmkNeo="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_neo"
+
+# fzf alias to show preview 
+alias fzfPreview="fzf --preview 'bat --style=numbers --color=always {}' --preview-window '~3'"
 
 # setup zoxide
 eval "$(zoxide init zsh)"
+
+###############################################
+# SMART CD THAT RELIES ON ZOXIDE TO MOVE AROUND
+
+# Function to trigger zoxide interactive
+function zoxide_interactive_tab() {
+    BUFFER="cd $(zoxide query --interactive)"  # Replace the buffer with the interactive query
+    zle accept-line                           # Execute the modified command
+}
+
+# Function to check context and conditionally trigger zoxide or completion
+function custom_cd_tab_binding() {
+    if [[ "$BUFFER" == "cd"* ]]; then         # If the current buffer starts with "cd"
+        zoxide_interactive_tab               # Trigger zoxide interactive
+    else
+        zle complete-word                   # Otherwise, perform regular completion
+    fi
+}
+
+# Bind Tab (^I) to our custom handler
+zle -N custom_cd_tab_binding
+bindkey "^I" custom_cd_tab_binding
+###############################################
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/Users/chris/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/chris/google-cloud-sdk/path.zsh.inc'; fi
+
+# Finally sources the syntax highlighting plugins
+# MUST ALWAYS BE LAST
 
 source ~/.config/themes/zsh-syntax-highlighting/themes/catppuccin_mocha-zsh-syntax-highlighting.zsh
 source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
