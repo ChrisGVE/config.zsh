@@ -237,33 +237,94 @@ alias qmkMain="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_firmware"
 alias qmkKeychron="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_keychron"
 
 # fzf alias to show preview 
-alias fzfPreview="fzf --preview 'bat --style=numbers --color=always {}' --preview-window '~3'"
+alias fzf="fzf --preview 'bat --style=numbers --color=always {}'" # --preview-window '~3'"
 
 # setup zoxide
-eval "$(zoxide init zsh)"
+export _ZO_DATA_DIR="$XDG_DATA_HOME"
+export _ZO_ECHO=1
+# export _ZO_FZF_OPTS=
+export _ZO_RESOLVE_SYMLINKS=0
+eval "$(zoxide init zsh --cmd cd)"
 
+# V3
+# ###############################################
+# # SMART CD THAT RELIES ON ZOXIDE TO MOVE AROUND
+#
+# function zoxide_interactive_with_preview() {
+#     # Run zoxide interactive and pass the selected folder to fzf for choosing files
+#     local dir=$(zoxide query --interactive -- "$@")  # Select folder using zoxide
+#     [[ -z "$dir" ]] && return  # Exit if no selection
+#
+#     # Open a second fzf to select files/folders from the chosen directory
+#     local file=$(ls -A "$dir" | fzf --height=40% --border --preview "file {}" --preview-window=up:3)
+#     [[ -z "$file" ]] && builtin cd "$dir" && return  # If no file selected, cd to the folder
+#
+#     builtin cd "$dir" && echo "$dir/$file"           # Echo the full path to the chosen file/folder
+# }
+#
+# function zoxide_cd_tab() {
+#     BUFFER="cd $(zoxide_interactive_with_preview)"
+#     zle accept-line
+# }
+#
+# zle -N zoxide_cd_tab
+# bindkey "^I" zoxide_cd_tab
+# ###############################################
+
+# V2
 ###############################################
 # SMART CD THAT RELIES ON ZOXIDE TO MOVE AROUND
 
-# Function to trigger zoxide interactive
-function zoxide_interactive_tab() {
-    BUFFER="cd $(zoxide query --interactive)"  # Replace the buffer with the interactive query
-    zle accept-line                           # Execute the modified command
-}
+# # Function to trigger zoxide interactive
+# function zoxide_interactive_tab() {
+#     if [[ "$BUFFER" == "cd" ]]; then
+#         BUFFER="cd $(zoxide query --interactive)"
+#     else
+#         local incomplete_path="${BUFFER#cd }"
+#         BUFFER="cd $(zoxide query --interactive -- $incomplete_path)"
+#     fi
+#
+#     zle accept-line
+# }
+#
+# # Function to check context and conditionally trigger zoxide or completion
+# function custom_cd_tab_binding() {
+#     if [[ "$BUFFER" == "cd"* ]]; then
+#         zoxide_interactive_tab
+#     else
+#         zle complete-word
+#     fi
+# }
+#
+# # Bind Tab (^I) to our custom handler
+# zle -N custom_cd_tab_binding
+# bindkey "^I" custom_cd_tab_binding
 
-# Function to check context and conditionally trigger zoxide or completion
-function custom_cd_tab_binding() {
-    if [[ "$BUFFER" == "cd"* ]]; then         # If the current buffer starts with "cd"
-        zoxide_interactive_tab               # Trigger zoxide interactive
-    else
-        zle complete-word                   # Otherwise, perform regular completion
-    fi
-}
-
-# Bind Tab (^I) to our custom handler
-zle -N custom_cd_tab_binding
-bindkey "^I" custom_cd_tab_binding
 ###############################################
+
+# V1
+# ###############################################
+# # SMART CD THAT RELIES ON ZOXIDE TO MOVE AROUND
+#
+# # Function to trigger zoxide interactive
+# function zoxide_interactive_tab() {
+#     BUFFER="cd $(zoxide query --interactive)"  # Replace the buffer with the interactive query
+#     zle accept-line                           # Execute the modified command
+# }
+#
+# # Function to check context and conditionally trigger zoxide or completion
+# function custom_cd_tab_binding() {
+#     if [[ "$BUFFER" == "cd"* ]]; then         # If the current buffer starts with "cd"
+#         zoxide_interactive_tab               # Trigger zoxide interactive
+#     else
+#         zle complete-word                   # Otherwise, perform regular completion
+#     fi
+# }
+#
+# # Bind Tab (^I) to our custom handler
+# zle -N custom_cd_tab_binding
+# bindkey "^I" custom_cd_tab_binding
+# ###############################################
 
 # The next line updates PATH for the Google Cloud SDK.
 if [ -f '/Users/chris/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/chris/google-cloud-sdk/path.zsh.inc'; fi
