@@ -235,11 +235,6 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-# Go to qmk folder and setup the config
-alias cdqmk="cd ~/dev/Keyboard/qmk/"
-alias qmkMain="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_firmware"
-alias qmkKeychron="qmk config user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_keychron"
-
 # fzf alias to show preview 
 alias fzf="fzf --preview 'bat --style=numbers --color=always {}'" # --preview-window '~3'"
 
