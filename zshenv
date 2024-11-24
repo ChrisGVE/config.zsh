@@ -17,5 +17,5 @@ export HISTFILE="$ZDOTDIR/.zsh_history"
 export HISTSIZE=50000
 export SAVEHIST=50000
 
-[[ -f $HOME/zshenv-private ]] && source $HOME/zshenv-private
+[[ -f $HOME/.zshenv-private ]] && source $HOME/.zshenv-private
 
