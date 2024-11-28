@@ -23,6 +23,7 @@ setopt HIST_BEEP                 # Beep when accessing nonexistent history.
 
 ## Setup for bat
 export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+export MANROFFOPT='-c'
 
 # Path to your oh-my-zsh installation.
 export ZSH="$XDG_CONFIG_HOME/oh-my-zsh"
