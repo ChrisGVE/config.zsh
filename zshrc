@@ -23,7 +23,7 @@ setopt HIST_BEEP                 # Beep when accessing nonexistent history.
 
 ## Setup for bat
 export MANPAGER="sh -c 'col -bx | bat -l man -p'"
-export MANROFFOPT='-c'
+export MANROFFOPT="-c"
 
 # Path to your oh-my-zsh installation.
 export ZSH="$XDG_CONFIG_HOME/oh-my-zsh"
@@ -333,4 +333,6 @@ if [ -f '/Users/chris/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/chris/goo
 # MUST ALWAYS BE LAST
 
 source ~/.config/themes/zsh-syntax-highlighting/themes/catppuccin_mocha-zsh-syntax-highlighting.zsh
-source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# get the source path of zsh-syntax-highlighting that is now sourced from nix-store.
+source $(nix eval --raw nixpkgs#zsh-syntax-highlighting.outPath)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
