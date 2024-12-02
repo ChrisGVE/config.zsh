@@ -51,7 +51,8 @@ ZSH_COLORIZE_CHROMA_FORMATTER=terminal16m
  ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_BLINKING_UNDERLINE
  ZVM_VI_HIGHLIGHT_BACKGROUND=#45475a
 
- plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-syntax-highlighting fast-syntax-highlighting zsh-autocomplete)
+ # plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-syntax-highlighting fast-syntax-highlighting zsh-autocomplete)
+ plugins=(git aliases common-aliases zsh-vi-mode zsh-syntax-highlighting fast-syntax-highlighting zsh-autocomplete)
 
 source $ZSH/oh-my-zsh.sh
 
