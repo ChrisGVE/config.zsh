@@ -6,6 +6,39 @@ if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
   eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.yml)"
 fi
 
+
+# OMP zsh-vi-mode integration
+_omp_redraw-prompt() {
+  local precmd
+  for precmd in "${precmd_functions[@]}"; do
+    "$precmd"
+  done
+  zle && zle reset-prompt
+}
+
+export POSH_VI_MODE="INSERT"
+
+function zvm_after_select_vi_mode() {
+  case $ZVM_MODE in
+  $ZVM_MODE_NORMAL)
+    POSH_VI_MODE="NORMAL"
+    ;;
+  $ZVM_MODE_INSERT)
+    POSH_VI_MODE="INSERT"
+    ;;
+  $ZVM_MODE_VISUAL)
+    POSH_VI_MODE="VISUAL"
+    ;;
+  $ZVM_MODE_VISUAL_LINE)
+    POSH_VI_MODE="V-LINE"
+    ;;
+  $ZVM_MODE_REPLACE)
+    POSH_VI_MODE="REPLACE"
+    ;;
+  esac
+  _omp_redraw-prompt
+}
+
 # ZSH History settings
 # setopt BANG_HIST                 # Treat the '!' character specially during expansion.
 # setopt EXTENDED_HISTORY          # Write the history file in the ":start:elapsed;command" format.
@@ -51,12 +84,12 @@ ZSH_COLORIZE_CHROMA_FORMATTER=terminal16m
  ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_BLINKING_UNDERLINE
  ZVM_VI_HIGHLIGHT_BACKGROUND=#45475a
 
- # plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-syntax-highlighting fast-syntax-highlighting zsh-autocomplete)
- plugins=(git aliases common-aliases zsh-vi-mode zsh-syntax-highlighting fast-syntax-highlighting zsh-autocomplete)
+plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-lazyload zsh-syntax-highlighting fast-syntax-highlighting)
 
 source $ZSH/oh-my-zsh.sh
 
 # Use vim keys in tab complete menu
+
 # bindkey -M menuselect 'h' vi-backward-char
 # bindkey -M menuselect 'k' vi-up-line-or-history
 # bindkey -M menuselect 'l' vi-forward-char
@@ -151,9 +184,6 @@ export PKG_CONFIG_PATH="/usr/local/opt/mysql@8.4/lib/pkgconfig"
 
 # Setup opam
 # [[ -f ~/.opam/opam-init/init.zsh ]] && source ~/.opam/opam-init/init.zsh
-
-# Setup broot
-# source /Users/chris/Library/Application\ Support/org.dystroy.broot/launcher/bash/br
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
@@ -289,3 +319,5 @@ eval "$(zoxide init zsh --cmd cd)"
 # source $(nix eval --raw nixpkgs#zsh-syntax-highlighting.outPath)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 # source /run/current-system/sw/share/zsh/site-functions/fast-syntax-highlighting.plugin.zsh
 fast-theme -w XDG:catppuccin-mocha
+
+source /Users/chris/Library/Application\ Support/org.dystroy.broot/launcher/bash/br
