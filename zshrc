@@ -84,7 +84,8 @@ ZSH_COLORIZE_CHROMA_FORMATTER=terminal16m
  ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_BLINKING_UNDERLINE
  ZVM_VI_HIGHLIGHT_BACKGROUND=#45475a
 
-plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-lazyload zsh-syntax-highlighting fast-syntax-highlighting)
+# plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-lazyload zsh-syntax-highlighting fast-syntax-highlighting)
+plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-lazyload fast-syntax-highlighting)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -205,7 +206,8 @@ alias fzf="fzf --preview 'bat --style=numbers --color=always {}'" # --preview-wi
 
 # setup zoxide
 export _ZO_DATA_DIR="$XDG_DATA_HOME"
-export _ZO_ECHO=1
+export _ZO_ECHO=0
+export _ZO_EXCLUDE_DIRS=$XDG_DATA_HOME:$XDG_CACHE_HOME:$XDG_STATE_HOME:$XDG_DATA_DIRS:$XDG_CONFIG_DIRS
 # export _ZO_FZF_OPTS=
 export _ZO_RESOLVE_SYMLINKS=0
 eval "$(zoxide init zsh --cmd cd)"
@@ -318,6 +320,8 @@ eval "$(zoxide init zsh --cmd cd)"
 # get the source path of zsh-syntax-highlighting that is now sourced from nix-store.
 # source $(nix eval --raw nixpkgs#zsh-syntax-highlighting.outPath)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 # source /run/current-system/sw/share/zsh/site-functions/fast-syntax-highlighting.plugin.zsh
-fast-theme -w XDG:catppuccin-mocha
+#
+# Set theme for fast-syntax-highlighting, need to be done only once
+# fast-theme XDG:catppuccin-mocha
 
 source /Users/chris/Library/Application\ Support/org.dystroy.broot/launcher/bash/br
