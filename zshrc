@@ -1,7 +1,5 @@
 zmodload zsh/zprof
 
-export ZSH=$XDG_CONFIG_HOME/oh-my-zsh
-
 if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
   eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.yml)"
 fi
@@ -85,7 +83,11 @@ ZSH_COLORIZE_CHROMA_FORMATTER=terminal16m
  ZVM_VI_HIGHLIGHT_BACKGROUND=#45475a
 
 # plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-lazyload zsh-syntax-highlighting fast-syntax-highlighting)
-plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-lazyload fast-syntax-highlighting)
+PLUG_AS=$(nix eval --raw nixpkgs#zsh-autosuggestions)/share/zsh-autosuggestions
+plugins=(git aliases common-aliases zsh-vi-mode $PLUG_AS zsh-lazyload fast-syntax-highlighting)
+
+export ZSH=$(nix eval --raw nixpkgs#oh-my-zsh)/share/oh-my-zsh
+export ZSH_CACHE_DIR=$XDG_CACHE_HOME/oh-my-zsh
 
 source $ZSH/oh-my-zsh.sh
 
