@@ -1,4 +1,23 @@
+#!/usr/bin/zsh
+#
 zmodload zsh/zprof
+
+# Configure zinit
+ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
+# Download, install, and start Zinit
+[ ! -d $ZINIT_HOME ] && mkdir -p "$(dirname $ZINIT_HOME)"
+[ ! -d $ZINIT_HOME/.git ] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
+source "${ZINIT_HOME}/zinit.zsh"
+
+# # Download Evalcache
+# [[ -r $XDG_CONFIG_HOME/zsh/evalcache/evalcache.plugin.zsh ]] ||
+#   git clone --depth 1 -- \
+#   https://github.com/mroth/evalcache.git $XDG_CONFIG_HOME/zsh/plugins/evalcache
+# # Setup
+# ZSH_EVALCACHE_DIR=$XDG_CACHE_HOME/evalcache
+#
+# source $XDG_DATA_HOME/evalcache/evalcache.plugin.zsh
+
 
 if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
   eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.yml)"
@@ -37,19 +56,6 @@ function zvm_after_select_vi_mode() {
   _omp_redraw-prompt
 }
 
-# ZSH History settings
-# setopt BANG_HIST                 # Treat the '!' character specially during expansion.
-# setopt EXTENDED_HISTORY          # Write the history file in the ":start:elapsed;command" format.
-# setopt INC_APPEND_HISTORY        # Write to the history file immediately, not when the shell exits.
-# setopt SHARE_HISTORY             # Share history between all sessions.
-# setopt HIST_EXPIRE_DUPS_FIRST    # Expire duplicate entries first when trimming history.
-# setopt HIST_IGNORE_DUPS          # Don't record an entry that was just recorded again.
-# setopt HIST_IGNORE_ALL_DUPS      # Delete old recorded entry if new entry is a duplicate.
-# setopt HIST_FIND_NO_DUPS         # Do not display a line previously found.
-# setopt HIST_IGNORE_SPACE         # Don't record an entry starting with a space.
-# setopt HIST_SAVE_NO_DUPS         # Don't write duplicate entries in the history file.
-# setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording entry.
-# setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
 ## Setup for man
 export MANPAGER="nvim +Man!"
 # export MANPAGER="sh -c 'col -bx | bat -l man -p'"
@@ -67,29 +73,86 @@ COMPLETION_WAITING_DOTS="true"
 
 export ZSH_CUSTOM=$XDG_CONFIG_HOME/zsh
 
-# ZSH_CUSTOM_AUTOUPDATE_QUIET=true
-
-# Colorize the
-ZSH_COLORIZE_TOOL=chroma
-ZSH_COLORIZE_STYLE="catppuccin-mocha"
-ZSH_COLORIZE_CHROMA_FORMATTER=terminal16m
-
 # ZSH-VI-MODE
- ZVM_NORMAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
- ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
- ZVM_VISUAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
- ZVM_VISUAL_LINE_MODE_CURSOR=$ZVM_CURSOR_BLOCK
- ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_BLINKING_UNDERLINE
- ZVM_VI_HIGHLIGHT_BACKGROUND=#45475a
+ZVM_NORMAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
+ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
+ZVM_VISUAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
+ZVM_VISUAL_LINE_MODE_CURSOR=$ZVM_CURSOR_BLOCK
+ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_BLINKING_UNDERLINE
+ZVM_VI_HIGHLIGHT_BACKGROUND=#45475a
+
+# Oh-My-Zsh Config
+#
+# ZSH History settings
+setopt BANG_HIST                 # Treat the '!' character specially during expansion.
+setopt EXTENDED_HISTORY          # Write the history file in the ":start:elapsed;command" format.
+setopt INC_APPEND_HISTORY        # Write to the history file immediately, not when the shell exits.
+setopt SHARE_HISTORY             # Share history between all sessions.
+setopt HIST_EXPIRE_DUPS_FIRST    # Expire duplicate entries first when trimming history.
+setopt HIST_IGNORE_DUPS          # Don't record an entry that was just recorded again.
+setopt HIST_IGNORE_ALL_DUPS      # Delete old recorded entry if new entry is a duplicate.
+setopt HIST_FIND_NO_DUPS         # Do not display a line previously found.
+setopt HIST_IGNORE_SPACE         # Don't record an entry starting with a space.
+setopt HIST_SAVE_NO_DUPS         # Don't write duplicate entries in the history file.
+setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording entry.
+setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
+#
+zi wait lucid for \
+  blockf \
+  light-mode \
+        OMZL::clipboard.zsh \
+        OMZL::directories.zsh \
+        OMZL::functions.zsh \
+        OMZL::git.zsh \
+        OMZL::history.zsh \
+        OMZL::termsupport.zsh \
+        OMZL::spectrum.zsh \
+        OMZL::grep.zsh \
+        OMZL::theme-and-appearance.zsh \
+        OMZP::alias-finder \
+        OMZP::aliases \
+        OMZP::common-aliases \
+        OMZP::conda \
+        OMZP::dash \
+        OMZP::direnv \
+        OMZP::dotenv \
+        OMZP::fzf \
+        OMZP::git \
+        OMZP::github \
+        OMZP::history \
+        OMZP::kitty \
+        OMZP::mosh \
+        OMZP::pip \
+        OMZP::rust \
+        OMZP::sudo \
+        OMZP::systemd \
+        OMZP::terraform \
+        nix-community/nix-zsh-completions \
+        jeffreytse/zsh-vi-mode \
+        zsh-users/zsh-autosuggestions \
+        zdharma-continuum/history-search-multi-word
+
+zi for \
+  atload="zicompinit; zicdreplay" \
+  blockf \
+  lucid \
+  wait \
+        zsh-users/zsh-completions \
+        zdharma-continuum/fast-syntax-highlighting
 
 # plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-lazyload zsh-syntax-highlighting fast-syntax-highlighting)
-PLUG_AS=$(nix eval --raw nixpkgs#zsh-autosuggestions)/share/zsh-autosuggestions
-plugins=(git aliases common-aliases zsh-vi-mode $PLUG_AS zsh-lazyload fast-syntax-highlighting)
+# source $(nix eval --raw nixpkgs#zsh-autosuggestions)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+# source $(nix eval --raw nixpkgs#zsh-autosuggestions)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+# source $(nix eval --raw nixpkgs#zsh-vi-mode)/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
+# source $(nix eval --raw nixpkgs#zsh-fast-syntax-highlighting)/share/zsh/site-functions/fast-syntax-highlighting.plugin.zsh
 
-export ZSH=$(nix eval --raw nixpkgs#oh-my-zsh)/share/oh-my-zsh
-export ZSH_CACHE_DIR=$XDG_CACHE_HOME/oh-my-zsh
+# plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-lazyload fast-syntax-highlighting)
+# plugins=(git aliases common-aliases)
 
-source $ZSH/oh-my-zsh.sh
+# export ZSH=$(nix eval --raw nixpkgs#oh-my-zsh)/share/oh-my-zsh
+# export ZSH_CACHE_DIR=$XDG_CACHE_HOME/oh-my-zsh
+
+# source $ZSH/oh-my-zsh.sh
 
 # Use vim keys in tab complete menu
 
@@ -324,6 +387,10 @@ eval "$(zoxide init zsh --cmd cd)"
 # source /run/current-system/sw/share/zsh/site-functions/fast-syntax-highlighting.plugin.zsh
 #
 # Set theme for fast-syntax-highlighting, need to be done only once
-# fast-theme XDG:catppuccin-mocha
+fast-theme XDG:catppuccin-mocha > /dev/null 2>&1
 
-source /Users/chris/Library/Application\ Support/org.dystroy.broot/launcher/bash/br
+source $(nix eval --raw nixpkgs#broot)/share/zsh/site-functions/br
+
+autoload -Uz compinit
+compinit
+zi cdreplay -q 
