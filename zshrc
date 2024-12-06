@@ -9,15 +9,8 @@ ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 [ ! -d $ZINIT_HOME/.git ] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
 source "${ZINIT_HOME}/zinit.zsh"
 
-# # Download Evalcache
-# [[ -r $XDG_CONFIG_HOME/zsh/evalcache/evalcache.plugin.zsh ]] ||
-#   git clone --depth 1 -- \
-#   https://github.com/mroth/evalcache.git $XDG_CONFIG_HOME/zsh/plugins/evalcache
-# # Setup
-# ZSH_EVALCACHE_DIR=$XDG_CACHE_HOME/evalcache
-#
-# source $XDG_DATA_HOME/evalcache/evalcache.plugin.zsh
-
+zinit ice atinit'zmodload zsh/zprof' \
+    atload'zprof | head -n 20; zmodload -u zsh/zprof'
 
 if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
   eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.yml)"
@@ -111,6 +104,7 @@ zi wait lucid for \
         OMZL::theme-and-appearance.zsh \
         OMZP::alias-finder \
         OMZP::aliases \
+        OMZP::colorize \
         OMZP::common-aliases \
         OMZP::conda \
         OMZP::dash \
@@ -139,6 +133,22 @@ zi for \
   wait \
         zsh-users/zsh-completions \
         zdharma-continuum/fast-syntax-highlighting
+
+# Enable alias-finder
+zstyle ':omz:plugins:alias-finder' autoload yes # disabled by default
+zstyle ':omz:plugins:alias-finder' longer yes # disabled by default
+zstyle ':omz:plugins:alias-finder' exact yes # disabled by default
+zstyle ':omz:plugins:alias-finder' cheaper yes # disabled by default
+
+# Setting up colorize
+ZSH_COLORIZE_TOOL=chroma
+ZSH_COLORIZE_STYLE="colorful"
+ZSH_COLORIZE_CHROMA_FORMATTER="terminal16m"
+
+# Install Broot
+for file in $(nix eval --raw nixpkgs#broot)/share/zsh/site-functions/*; do
+  source $file;
+done
 
 # plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-lazyload zsh-syntax-highlighting fast-syntax-highlighting)
 # source $(nix eval --raw nixpkgs#zsh-autosuggestions)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
@@ -388,8 +398,6 @@ eval "$(zoxide init zsh --cmd cd)"
 #
 # Set theme for fast-syntax-highlighting, need to be done only once
 fast-theme XDG:catppuccin-mocha > /dev/null 2>&1
-
-source $(nix eval --raw nixpkgs#broot)/share/zsh/site-functions/br
 
 autoload -Uz compinit
 compinit
