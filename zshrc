@@ -19,7 +19,7 @@ fi
 
 # OMP zsh-vi-mode integration
 _omp_redraw-prompt() {
-  local precmd
+  # local precmd
   for precmd in "${precmd_functions[@]}"; do
     "$precmd"
   done
@@ -121,16 +121,18 @@ zi wait lucid for \
         OMZP::sudo \
         OMZP::systemd \
         OMZP::terraform \
-        nix-community/nix-zsh-completions \
         jeffreytse/zsh-vi-mode \
         zsh-users/zsh-autosuggestions \
         zdharma-continuum/history-search-multi-word
 
+zi ice as"completion" \
+        /usr/local/opt/curl/share/zsh/site-functions/_curl \
+        /usr/local/share/zsh/site-functions/*
+
 zi for \
   atload="zicompinit; zicdreplay" \
   blockf \
-  lucid \
-  wait \
+  wait lucid \
         zsh-users/zsh-completions \
         zdharma-continuum/fast-syntax-highlighting
 
@@ -140,37 +142,48 @@ zstyle ':omz:plugins:alias-finder' longer yes # disabled by default
 zstyle ':omz:plugins:alias-finder' exact yes # disabled by default
 zstyle ':omz:plugins:alias-finder' cheaper yes # disabled by default
 
-# Setting up colorize
-ZSH_COLORIZE_TOOL=chroma
-ZSH_COLORIZE_STYLE="colorful"
-ZSH_COLORIZE_CHROMA_FORMATTER="terminal16m"
-
-# Install Broot
-for file in $(nix eval --raw nixpkgs#broot)/share/zsh/site-functions/*; do
-  source $file;
-done
-
-# plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-lazyload zsh-syntax-highlighting fast-syntax-highlighting)
-# source $(nix eval --raw nixpkgs#zsh-autosuggestions)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-# source $(nix eval --raw nixpkgs#zsh-autosuggestions)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-# source $(nix eval --raw nixpkgs#zsh-vi-mode)/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
-# source $(nix eval --raw nixpkgs#zsh-fast-syntax-highlighting)/share/zsh/site-functions/fast-syntax-highlighting.plugin.zsh
-
-# plugins=(git aliases common-aliases zsh-vi-mode zsh-autosuggestions zsh-lazyload fast-syntax-highlighting)
-# plugins=(git aliases common-aliases)
-
-# export ZSH=$(nix eval --raw nixpkgs#oh-my-zsh)/share/oh-my-zsh
-# export ZSH_CACHE_DIR=$XDG_CACHE_HOME/oh-my-zsh
-
-# source $ZSH/oh-my-zsh.sh
+# Setting up auto-completions
+zstyle ':completion:*' menu select
+zmodload zsh/complist
 
 # Use vim keys in tab complete menu
+bindkey -M menuselect 'h' vi-backward-char
+bindkey -M menuselect 'k' vi-up-line-or-history
+bindkey -M menuselect 'l' vi-forward-char
+bindkey -M menuselect 'j' vi-down-line-or-history
+bindkey -v '^?' backward-delete-char
+bindkey '^n' expand-or-complete
+bindkey '^p' reverse-menu-complete
 
-# bindkey -M menuselect 'h' vi-backward-char
-# bindkey -M menuselect 'k' vi-up-line-or-history
-# bindkey -M menuselect 'l' vi-forward-char
-# bindkey -M menuselect 'j' vi-down-line-or-history
-# bindkey -v '^?' backward-delete-char
+# Setting up colorize
+export ZSH_COLORIZE_TOOL=chroma
+export ZSH_COLORIZE_STYLE="colorful"
+export ZSH_COLORIZE_CHROMA_FORMATTER="terminal16m"
+
+# Setting up Perl
+# PERL_MM_OPT="INSTALL_BASE=$XDG_CACHE_HOME/perl5" cpan local::lib
+eval "$(perl -I$XDG_CACHE_HOME/perl5/lib/perl5 -Mlocal::lib=$XDG_CACHE_HOME/perl5)"
+
+# Setting curl path
+export PATH="/usr/local/opt/curl/bin:$PATH"
+
+# Setting path for ruby
+export PATH="/usr/local/opt/ruby/bin:$PATH"
+
+# Setting up zip path
+export PATH="/usr/local/opt/zip/bin:$PATH"
+
+# Setting up path for avr-gcc@8
+export PATH="/usr/local/opt/avr-gcc@8/bin:$PATH"
+
+# Setting up path for arm-none-eabi-gcc@8 and binutils
+export PATH="/usr/local/opt/arm-none-eabi-gcc@8/bin:/usr/local/opt/arm-none-eabi-binutils/bin:$PATH"
+
+# Setup fzf integration
+source <(fzf --zsh)
+
+# toolchain for go
+export GOTOOLCHAIN=local
 
 # User configuration
 
@@ -193,6 +206,10 @@ export FZF_DEFAULT_OPTS=" \
 # For a full list of active aliases, run `alias`.
 #
 alias zshconfig="nvim $ZDOTDIR/zshrc"
+
+# alias to easily switch between qmk firmware sources.
+alias qmk_og="qmk config set user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_firmware"
+alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_keychron"
 
 # add alias to configure nvim
 alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
@@ -226,8 +243,6 @@ exit() {
     fi
 }
 
-[[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
-
 autoload -U zmv
 alias zcp='zmv -C'
 alias zln='zmv -L'
@@ -254,12 +269,18 @@ alias disable_gatekeeper="sudo spctl --master-disable"
 # Setup for MySQL
 #
 export PATH="/usr/local/opt/mysql@8.4/bin:$PATH"
-export LDFLAGS="-L/usr/local/opt/mysql@8.4/lib"
-export CPPFLAGS="-I/usr/local/opt/mysql@8.4/include"
 export PKG_CONFIG_PATH="/usr/local/opt/mysql@8.4/lib/pkgconfig"
+# Setup for compiler
+export LDFLAGS="-L/usr/local/opt/arm-none-eabi-gcc@8/lib -L/usr/local/opt/avr-gcc@8/lib -L/usr/local/opt/mysql@8.4/lib -L/usr/local/opt/curl/lib -L/usr/local/opt/ruby/lib"
+export CPPFLAGS="-I/usr/local/opt/mysql@8.4/include -I/usr/local/opt/curl/include -I/usr/local/opt/ruby/include"
 
-# Setup opam
-# [[ -f ~/.opam/opam-init/init.zsh ]] && source ~/.opam/opam-init/init.zsh
+# BEGIN opam configuration
+# This is useful if you're using opam as it adds:
+#   - the correct directories to the PATH
+#   - auto-completion for the opam binary
+# This section can be safely removed at any time if needed.
+[[ ! -r '/Users/chris/.opam/opam-init/init.zsh' ]] || source '/Users/chris/.opam/opam-init/init.zsh' > /dev/null 2> /dev/null
+# END opam configuration
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
@@ -286,6 +307,9 @@ export _ZO_EXCLUDE_DIRS=$XDG_DATA_HOME:$XDG_CACHE_HOME:$XDG_STATE_HOME:$XDG_DATA
 # export _ZO_FZF_OPTS=
 export _ZO_RESOLVE_SYMLINKS=0
 eval "$(zoxide init zsh --cmd cd)"
+
+# Setup broot
+source /Users/chris/.config/broot/launcher/bash/br
 
 # V3
 # ###############################################
@@ -371,32 +395,6 @@ eval "$(zoxide init zsh --cmd cd)"
 # if [ -f '/Users/chris/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/chris/google-cloud-sdk/path.zsh.inc'; fi
 
 
-# source $(nix eval --raw nixpkgs#zsh-autosuggestions)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-# source $(nix eval --raw nixpkgs#zsh-vi-mode)/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
-# Aliases
-# source $ZSH_CUSTOM/plugins/common-aliases/common-aliases.plugin.zsh
-# source $ZSH_CUSTOM/plugins/aliases/aliases.plugin.zsh
-#
-# Completions
-# fpath=(/run/current-system/sw/share/zsh/site-functions $fpath)
-#
-# autoload -Uz compinit 
-#
-# for dump in $ZSH_CUSTOM/.zcompdump(N.mh+24); do
-#   compinit
-# done
-#
-# compinit -C
-
-# Finally sources the syntax highlighting plugins
-# MUST ALWAYS BE LAST
-
-# source ~/.config/themes/zsh-syntax-highlighting/themes/catppuccin_mocha-zsh-syntax-highlighting.zsh
-# get the source path of zsh-syntax-highlighting that is now sourced from nix-store.
-# source $(nix eval --raw nixpkgs#zsh-syntax-highlighting.outPath)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-# source /run/current-system/sw/share/zsh/site-functions/fast-syntax-highlighting.plugin.zsh
-#
-# Set theme for fast-syntax-highlighting, need to be done only once
 fast-theme XDG:catppuccin-mocha > /dev/null 2>&1
 
 autoload -Uz compinit
