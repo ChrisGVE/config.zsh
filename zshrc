@@ -3,7 +3,7 @@
 zmodload zsh/zprof
 
 # Configure zinit
-ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
+export ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 # Download, install, and start Zinit
 [ ! -d $ZINIT_HOME ] && mkdir -p "$(dirname $ZINIT_HOME)"
 [ ! -d $ZINIT_HOME/.git ] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
@@ -55,24 +55,24 @@ export MANPAGER="nvim +Man!"
 # export MANROFFOPT="-c"
 
 # Uncomment the following line to use case-sensitive completion.
-CASE_SENSITIVE="false"
+export CASE_SENSITIVE="false"
 
 # Uncomment the following line to use hyphen-insensitive completion.
 # Case-sensitive completion must be off. _ and - will be interchangeable.
-HYPHEN_INSENSITIVE="true"
+export HYPHEN_INSENSITIVE="true"
 
 # Uncomment the following line to display red dots whilst waiting for completion.
-COMPLETION_WAITING_DOTS="true"
+export COMPLETION_WAITING_DOTS="true"
 
 export ZSH_CUSTOM=$XDG_CONFIG_HOME/zsh
 
 # ZSH-VI-MODE
-ZVM_NORMAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
-ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
-ZVM_VISUAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
-ZVM_VISUAL_LINE_MODE_CURSOR=$ZVM_CURSOR_BLOCK
-ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_BLINKING_UNDERLINE
-ZVM_VI_HIGHLIGHT_BACKGROUND=#45475a
+export ZVM_NORMAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
+export ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
+export ZVM_VISUAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
+export ZVM_VISUAL_LINE_MODE_CURSOR=$ZVM_CURSOR_BLOCK
+export ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_BLINKING_UNDERLINE
+export ZVM_VI_HIGHLIGHT_BACKGROUND=#45475a
 
 # Oh-My-Zsh Config
 #
@@ -310,90 +310,6 @@ eval "$(zoxide init zsh --cmd cd)"
 
 # Setup broot
 source /Users/chris/.config/broot/launcher/bash/br
-
-# V3
-# ###############################################
-# # SMART CD THAT RELIES ON ZOXIDE TO MOVE AROUND
-#
-# function zoxide_interactive_with_preview() {
-#     # Run zoxide interactive and pass the selected folder to fzf for choosing files
-#     local dir=$(zoxide query --interactive -- "$@")  # Select folder using zoxide
-#     [[ -z "$dir" ]] && return  # Exit if no selection
-#
-#     # Open a second fzf to select files/folders from the chosen directory
-#     local file=$(ls -A "$dir" | fzf --height=40% --border --preview "file {}" --preview-window=up:3)
-#     [[ -z "$file" ]] && builtin cd "$dir" && return  # If no file selected, cd to the folder
-#
-#     builtin cd "$dir" && echo "$dir/$file"           # Echo the full path to the chosen file/folder
-# }
-#
-# function zoxide_cd_tab() {
-#     BUFFER="cd $(zoxide_interactive_with_preview)"
-#     zle accept-line
-# }
-#
-# zle -N zoxide_cd_tab
-# bindkey "^I" zoxide_cd_tab
-# ###############################################
-
-# V2
-###############################################
-# SMART CD THAT RELIES ON ZOXIDE TO MOVE AROUND
-
-# # Function to trigger zoxide interactive
-# function zoxide_interactive_tab() {
-#     if [[ "$BUFFER" == "cd" ]]; then
-#         BUFFER="cd $(zoxide query --interactive)"
-#     else
-#         local incomplete_path="${BUFFER#cd }"
-#         BUFFER="cd $(zoxide query --interactive -- $incomplete_path)"
-#     fi
-#
-#     zle accept-line
-# }
-#
-# # Function to check context and conditionally trigger zoxide or completion
-# function custom_cd_tab_binding() {
-#     if [[ "$BUFFER" == "cd"* ]]; then
-#         zoxide_interactive_tab
-#     else
-#         zle complete-word
-#     fi
-# }
-#
-# # Bind Tab (^I) to our custom handler
-# zle -N custom_cd_tab_binding
-# bindkey "^I" custom_cd_tab_binding
-
-###############################################
-
-# V1
-# ###############################################
-# # SMART CD THAT RELIES ON ZOXIDE TO MOVE AROUND
-#
-# # Function to trigger zoxide interactive
-# function zoxide_interactive_tab() {
-#     BUFFER="cd $(zoxide query --interactive)"  # Replace the buffer with the interactive query
-#     zle accept-line                           # Execute the modified command
-# }
-#
-# # Function to check context and conditionally trigger zoxide or completion
-# function custom_cd_tab_binding() {
-#     if [[ "$BUFFER" == "cd"* ]]; then         # If the current buffer starts with "cd"
-#         zoxide_interactive_tab               # Trigger zoxide interactive
-#     else
-#         zle complete-word                   # Otherwise, perform regular completion
-#     fi
-# }
-#
-# # Bind Tab (^I) to our custom handler
-# zle -N custom_cd_tab_binding
-# bindkey "^I" custom_cd_tab_binding
-# ###############################################
-
-# The next line updates PATH for the Google Cloud SDK.
-# if [ -f '/Users/chris/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/chris/google-cloud-sdk/path.zsh.inc'; fi
-
 
 fast-theme XDG:catppuccin-mocha > /dev/null 2>&1
 
