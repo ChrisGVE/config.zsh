@@ -181,19 +181,27 @@ export PATH="/usr/local/opt/arm-none-eabi-gcc@8/bin:/usr/local/opt/arm-none-eabi
 
 # Setup fzf integration
 source <(fzf --zsh)
+# FZF theming with catppuccin-mocha
+export FZF_DEFAULT_OPTS=" \
+  --color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
+  --color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
+  --color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 \
+  --color=selected-bg:#45475a \
+  --multi"
+# Trigger sequence instead of default **
+export FZF_COMPLETION_TRIGGER='**'
+export FZF_COMPLETION_OPTS='--border --info=inline'
+export FZF_COMPLETION_PATH_OPTS='--walker file,dir,follow,hidden'
+export FZF_COMPLETION_DIR_OPTS='--walker dir,follow'
+
+# Setup taskwarrior
+export TASKRC=$XDG_CONFIG_HOME/task/taskrc
+export TASKDATA=$XDG_DOCUMENTS_DIR/tasks task list
 
 # toolchain for go
 export GOTOOLCHAIN=local
 
 # User configuration
-
-# FZF theming with catppuccin-mocha
-export FZF_DEFAULT_OPTS=" \
---color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
---color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
---color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 \
---color=selected-bg:#45475a \
---multi"
 
 # Preferred editor for remote sessions
 # if [[ -n $SSH_CONNECTION ]]; then
