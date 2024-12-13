@@ -196,7 +196,7 @@ export FZF_COMPLETION_DIR_OPTS='--walker dir,follow'
 
 # Setup taskwarrior
 export TASKRC=$XDG_CONFIG_HOME/task/taskrc
-export TASKDATA=$XDG_DOCUMENTS_DIR/tasks task list
+export TASKDATA=$XDG_DATA_HOME/tasks task list
 
 # toolchain for go
 export GOTOOLCHAIN=local
