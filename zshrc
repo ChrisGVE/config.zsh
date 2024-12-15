@@ -50,7 +50,8 @@ function zvm_after_select_vi_mode() {
 }
 
 ## Setup for man
-export MANPAGER="nvim +Man!"
+# export MANPAGER="nvim +Man!"
+export MANPAGER="batman"
 # export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 # export MANROFFOPT="-c"
 
@@ -178,6 +179,9 @@ export PATH="/usr/local/opt/avr-gcc@8/bin:$PATH"
 
 # Setting up path for arm-none-eabi-gcc@8 and binutils
 export PATH="/usr/local/opt/arm-none-eabi-gcc@8/bin:/usr/local/opt/arm-none-eabi-binutils/bin:$PATH"
+
+# Setting up path for luarocks
+eval "$(luarocks path --bin)"
 
 # Setup fzf integration
 source <(fzf --zsh)
