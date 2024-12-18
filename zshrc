@@ -313,11 +313,6 @@ unset __conda_setup
 alias fzf="fzf --preview 'bat --style=numbers --color=always {}'" # --preview-window '~3'"
 
 # setup zoxide
-export _ZO_DATA_DIR="$XDG_DATA_HOME"
-export _ZO_ECHO=0
-export _ZO_EXCLUDE_DIRS=$XDG_DATA_HOME:$XDG_CACHE_HOME:$XDG_STATE_HOME:$XDG_DATA_DIRS:$XDG_CONFIG_DIRS
-# export _ZO_FZF_OPTS=
-export _ZO_RESOLVE_SYMLINKS=0
 eval "$(zoxide init zsh --cmd cd)"
 
 # Setup broot

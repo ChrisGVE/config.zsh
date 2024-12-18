@@ -17,5 +17,11 @@ export HISTFILE="$ZDOTDIR/.zsh_history"
 export HISTSIZE=50000
 export SAVEHIST=50000
 
-[[ -f $HOME/.zshenv-private ]] && source $HOME/.zshenv-private
+export _ZO_DATA_DIR="$XDG_DATA_HOME"
+export _ZO_ECHO=0
+export _ZO_EXCLUDE_DIRS=$XDG_DATA_HOME:$XDG_CACHE_HOME:$XDG_STATE_HOME:$XDG_DATA_DIRS:$XDG_CONFIG_DIRS
+# export _ZO_FZF_OPTS=
+export _ZO_RESOLVE_SYMLINKS=0
+
+[[ -f $HOME/.secret/zshenv-private ]] && source $HOME/.secret/zshenv-private
 
