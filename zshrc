@@ -235,8 +235,8 @@ export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"
 # Add Homebrew sbin path
 export PATH="/usr/local/sbin:$PATH"
 
-# Kitty useful aliases
-alias icat="kitten icat"
+# Allas for taskwarrior-tui
+alias tt="taskwarrior-tui"
 
 # Override exit to prevent exiting the last pane in tmux
 exit() {
