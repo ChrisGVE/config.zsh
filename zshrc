@@ -272,7 +272,7 @@ export PATH="$HOME/bin:$HOME/Scripts:$PATH"
 alias mc="mc --nosubshell"
 
 # Setup lazygit config with Catppuccin
-alias lazygit='lazygit --use-config-file="/Users/chris/.config/lazygit/config.yml,/Users/chris/.config/lazygit/catppuccin/mocha/blue.yml"'
+alias lazygit='lazygit --use-config-file="/Users/chris/.config/lazygit/config.yml,/Users/chris/.config/lazygit/catppuccin/themes-mergable/mocha/blue.yml"'
 
 # Enable/Disable Gatekeeper 
 # alias enable_gatekeeper="sudo spctl --master-enable"  ## Deprecated
