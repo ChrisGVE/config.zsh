@@ -51,7 +51,7 @@ function zvm_after_select_vi_mode() {
 
 ## Setup for man
 # export MANPAGER="nvim +Man!"
-export MANPAGER="batman"
+eval "$(batman --export-env)"
 # export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 # export MANROFFOPT="-c"
 
