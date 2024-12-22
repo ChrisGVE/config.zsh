@@ -2,6 +2,17 @@
 #
 zmodload zsh/zprof
 
+function _add_path() {
+  if [[ -n $* ]]; then
+    [[ -d $* ]] && export PATH="$*:$PATH"
+  fi 
+}
+
+# Setting snap binary path
+_add_path "/snap/bin"
+_add_path "$HOME/.local/bin" 
+
+
 # Configure zinit
 export ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 # Download, install, and start Zinit
@@ -51,7 +62,7 @@ function zvm_after_select_vi_mode() {
 
 ## Setup for man
 # export MANPAGER="nvim +Man!"
-eval "$(batman --export-env)"
+if type batman >/dev/null 2>&1; eval "$(batman --export-env)" fi
 # export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 # export MANROFFOPT="-c"
 
@@ -126,8 +137,10 @@ zi wait lucid for \
         zsh-users/zsh-autosuggestions \
         zdharma-continuum/history-search-multi-word
 
-zi ice as"completion" \
-        /usr/local/opt/curl/share/zsh/site-functions/_curl \
+[[ -d /usr/local/opt/curl/share/zsh/site-functions ]] && zi ice as"completion" \
+	/usr/local/opt/curl/share/zsh/site-functions/_curl
+
+[[ ! -z "$( ls -A /usr/local/share/zsh/site-functions )" ]] && zi ice as"completion" \
         /usr/local/share/zsh/site-functions/*
 
 zi for \
@@ -165,26 +178,28 @@ export ZSH_COLORIZE_CHROMA_FORMATTER="terminal16m"
 # PERL_MM_OPT="INSTALL_BASE=$XDG_CACHE_HOME/perl5" cpan local::lib
 eval "$(perl -I$HOME/dev/toosl/perl5/lib/perl5 -Mlocal::lib=$HOME/dev/tools/perl5)"
 
+
 # Setting curl path
-export PATH="/usr/local/opt/curl/bin:$PATH"
+_add_path"/usr/local/opt/curl/bin"
 
 # Setting path for ruby
-export PATH="/usr/local/opt/ruby/bin:$PATH"
+_add_path "/usr/local/opt/ruby/bin"
 
 # Setting up zip path
-export PATH="/usr/local/opt/zip/bin:$PATH"
+_add_path "/usr/local/opt/zip/bin"
 
 # Setting up path for avr-gcc@8
-export PATH="/usr/local/opt/avr-gcc@8/bin:$PATH"
+_add_path "/usr/local/opt/avr-gcc@8/bin"
 
 # Setting up path for arm-none-eabi-gcc@8 and binutils
-export PATH="/usr/local/opt/arm-none-eabi-gcc@8/bin:/usr/local/opt/arm-none-eabi-binutils/bin:$PATH"
+_add_path "/usr/local/opt/arm-none-eabi-gcc@8/bin"
+_add_path "/usr/local/opt/arm-none-eabi-binutils/bin"
 
 # Setting up path for luarocks
-eval "$(luarocks path --bin)"
+if type luarocks >/dev/null 2>&1; eval "$(luarocks path --bin)" fi
 
 # Setup fzf integration
-source <(fzf --zsh)
+if type fzf >/dev/null 2>&1; source <(fzf --zsh) fi
 # FZF theming with catppuccin-mocha
 export FZF_DEFAULT_OPTS=" \
   --color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
@@ -220,23 +235,23 @@ export GOTOOLCHAIN=local
 alias zshconfig="nvim $ZDOTDIR/zshrc"
 
 # alias to easily switch between qmk firmware sources.
-alias qmk_og="qmk config set user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_firmware"
-alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_keychron"
+[[ -d $HOME/dev/Keyboard/qmk/qmk_firmware ]] && alias qmk_og="qmk config set user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_firmware"
+[[ -d $HOME/dev/Keyboard/qmk/qmk_keychron ]] && alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_keychron"
 
 # add alias to configure nvim
 alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
 
 # add custom bin path and .local/bin
-export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
+_add_path "$HOME/bin"
 
 # Add gnubin path to use `sed`
-export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"
+_add_path "/usr/local/opt/gnu-sed/libexec/gnubin"
 
 # Add Homebrew sbin path
-export PATH="/usr/local/sbin:$PATH"
+_add_path "/usr/local/sbin"
 
 # Allas for taskwarrior-tui
-alias tt="taskwarrior-tui"
+if type taskwarrior-tui > /dev/null 2>&1; alias tt="taskwarrior-tui" fi
 
 # Override exit to prevent exiting the last pane in tmux
 exit() {
@@ -261,12 +276,12 @@ alias zln='zmv -L'
 
 alias luamake=/Users/chris/tools/lua-language-server/3rd/luamake/luamake
 
-export PATH="/usr/local/opt/openjdk/bin:$PATH"
-export PATH="/usr/local/opt/dart@2.18/bin:$PATH"
-export PATH="/usr/local/opt/sphinx-doc/bin:$PATH"
+_add_path "/usr/local/opt/openjdk/bin"
+_add_path "/usr/local/opt/dart@2.18/bin"
+_add_path "/usr/local/opt/sphinx-doc/bin"
 
 # Adding path to user bin
-export PATH="$HOME/bin:$HOME/Scripts:$PATH"
+_add_path "$HOME/Scripts"
 
 # speed up midnight commander 
 alias mc="mc --nosubshell"
@@ -280,7 +295,7 @@ alias disable_gatekeeper="sudo spctl --master-disable"
 
 # Setup for MySQL
 #
-export PATH="/usr/local/opt/mysql@8.4/bin:$PATH"
+_add_path "/usr/local/opt/mysql@8.4/bin"
 export PKG_CONFIG_PATH="/usr/local/opt/mysql@8.4/lib/pkgconfig"
 # Setup for compiler
 export LDFLAGS="-L/usr/local/opt/arm-none-eabi-gcc@8/lib -L/usr/local/opt/avr-gcc@8/lib -L/usr/local/opt/mysql@8.4/lib -L/usr/local/opt/curl/lib -L/usr/local/opt/ruby/lib"
@@ -313,13 +328,14 @@ unset __conda_setup
 alias fzf="fzf --preview 'bat --style=numbers --color=always {}'" # --preview-window '~3'"
 
 # setup zoxide
-eval "$(zoxide init zsh --cmd cd)"
+if type zoxide >/dev/null 2>&1; eval "$(zoxide init zsh --cmd cd)" fi
 
 # Setup broot
-source /Users/chris/.config/broot/launcher/bash/br
+[[ -f $HOME/.config/broot/launcher/bash/br ]] && source $HOME/.config/broot/launcher/bash/br
 
-fast-theme XDG:catppuccin-mocha > /dev/null 2>&1
+if type fast-theme > /dev/null 2>&1; fast-theme XDG:catppuccin-mocha > /dev/null 2>&1 fi
 
 autoload -Uz compinit
 compinit
 zi cdreplay -q 
+
