@@ -62,7 +62,7 @@ function zvm_after_select_vi_mode() {
 
 ## Setup for man
 # export MANPAGER="nvim +Man!"
-if type batman >/dev/null 2>&1; eval "$(batman --export-env)" fi
+if type batman >/dev/null 2>&1; then eval "$(batman --export-env)"; fi
 # export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 # export MANROFFOPT="-c"
 
@@ -180,7 +180,7 @@ eval "$(perl -I$HOME/dev/toosl/perl5/lib/perl5 -Mlocal::lib=$HOME/dev/tools/perl
 
 
 # Setting curl path
-_add_path"/usr/local/opt/curl/bin"
+_add_path "/usr/local/opt/curl/bin"
 
 # Setting path for ruby
 _add_path "/usr/local/opt/ruby/bin"
@@ -196,10 +196,10 @@ _add_path "/usr/local/opt/arm-none-eabi-gcc@8/bin"
 _add_path "/usr/local/opt/arm-none-eabi-binutils/bin"
 
 # Setting up path for luarocks
-if type luarocks >/dev/null 2>&1; eval "$(luarocks path --bin)" fi
+if type luarocks >/dev/null 2>&1; then eval "$(luarocks path --bin)"; fi
 
 # Setup fzf integration
-if type fzf >/dev/null 2>&1; source <(fzf --zsh) fi
+if type fzf >/dev/null 2>&1; then source <(fzf --zsh); fi
 # FZF theming with catppuccin-mocha
 export FZF_DEFAULT_OPTS=" \
   --color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
@@ -251,7 +251,7 @@ _add_path "/usr/local/opt/gnu-sed/libexec/gnubin"
 _add_path "/usr/local/sbin"
 
 # Allas for taskwarrior-tui
-if type taskwarrior-tui > /dev/null 2>&1; alias tt="taskwarrior-tui" fi
+if type taskwarrior-tui > /dev/null 2>&1; then alias tt="taskwarrior-tui"; fi
 
 # Override exit to prevent exiting the last pane in tmux
 exit() {
@@ -328,12 +328,12 @@ unset __conda_setup
 alias fzf="fzf --preview 'bat --style=numbers --color=always {}'" # --preview-window '~3'"
 
 # setup zoxide
-if type zoxide >/dev/null 2>&1; eval "$(zoxide init zsh --cmd cd)" fi
+if type zoxide >/dev/null 2>&1; then eval "$(zoxide init zsh --cmd cd)"; fi
 
 # Setup broot
 [[ -f $HOME/.config/broot/launcher/bash/br ]] && source $HOME/.config/broot/launcher/bash/br
 
-if type fast-theme > /dev/null 2>&1; fast-theme XDG:catppuccin-mocha > /dev/null 2>&1 fi
+if type fast-theme > /dev/null 2>&1; then fast-theme XDG:catppuccin-mocha > /dev/null 2>&1; fi
 
 autoload -Uz compinit
 compinit
