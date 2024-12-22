@@ -176,7 +176,7 @@ export ZSH_COLORIZE_CHROMA_FORMATTER="terminal16m"
 
 # Setting up Perl
 # PERL_MM_OPT="INSTALL_BASE=$XDG_CACHE_HOME/perl5" cpan local::lib
-eval "$(perl -I$HOME/dev/toosl/perl5/lib/perl5 -Mlocal::lib=$HOME/dev/tools/perl5)"
+eval "$(perl -I$HOME/dev/tools/perl5/lib/perl5 -Mlocal::lib=$HOME/dev/tools/perl5)"
 
 
 # Setting curl path
