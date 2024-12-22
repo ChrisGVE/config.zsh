@@ -330,7 +330,9 @@ unset __conda_setup
 # <<< conda initialize <<<
 
 # fzf alias to show preview 
-alias fzf="fzf --preview 'bat --style=numbers --color=always {}'" # --preview-window '~3'"
+if type bat >/dev/null 2>&1; then 
+  alias fzf="fzf --preview 'bat --style=numbers --color=always {}'"; # --preview-window '~3'"
+fi
 
 # setup zoxide
 if type zoxide >/dev/null 2>&1; then eval "$(zoxide init zsh --cmd cd)"; fi
