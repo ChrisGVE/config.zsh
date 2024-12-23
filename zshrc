@@ -343,7 +343,7 @@ if type zoxide >/dev/null 2>&1; then eval "$(zoxide init zsh --cmd cd)"; fi
 if type fast-theme > /dev/null 2>&1; then fast-theme XDG:catppuccin-mocha > /dev/null 2>&1; fi
 
 # Setup the ssh-agent if it is not yet running
-if [ $(ps ax | grep [s]sh-agent | wc -l) -gt 0]; then
+if [ $(ps ax | grep [s]sh-agent | wc -l) -gt 0 ] ; then
   echo "ssh-agent already running" > /dev/null
 else
   eval $(ssh-agent -s)
