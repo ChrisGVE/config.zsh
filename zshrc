@@ -4,7 +4,12 @@ zmodload zsh/zprof
 
 function _add_path() {
   if [[ -n $* ]]; then
-    [[ -d $* ]] && export PATH="$*:$PATH"
+    [[ -d $* ]] && case ":${PATH}:" in *:$*:*)
+      ;;
+    *)
+      export PATH="$*:$PATH"
+      ;;
+    esac
   fi 
 }
 
