@@ -280,6 +280,10 @@ exit() {
     fi
 }
 
+alias tmux_main="tmux new-session -d -s main"
+alias tmux_new="tmux new-session -d -s new"
+alias tmux_attach="tmux attach -t
+
 autoload -U zmv
 alias zcp='zmv -C'
 alias zln='zmv -L'
