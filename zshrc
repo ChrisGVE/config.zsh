@@ -243,6 +243,7 @@ export GOTOOLCHAIN=local
 # For a full list of active aliases, run `alias`.
 #
 alias zshconfig="nvim $ZDOTDIR/zshrc"
+alias zshsource="source $ZDOTDIR/zshrc"
 
 # alias to easily switch between qmk firmware sources.
 [[ -d $HOME/dev/Keyboard/qmk/qmk_firmware ]] && alias qmk_og="qmk config set user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_firmware"
@@ -280,9 +281,7 @@ exit() {
     fi
 }
 
-alias tmux_main="tmux new-session -d -s main"
-alias tmux_new="tmux new-session -d -s new"
-alias tmux_attach="tmux attach -t
+alias tmux_main="tmux new-session -ADs main"
 
 autoload -U zmv
 alias zcp='zmv -C'
@@ -340,7 +339,7 @@ unset __conda_setup
 
 # fzf alias to show preview 
 if type bat >/dev/null 2>&1; then 
-  alias fzf="fzf --preview 'bat --style=numbers --color=always {}'"; # --preview-window '~3'"
+  alias fzf="fzf --preview 'bat --style=numbers --color=always {}' --preview-window '~3'"
 fi
 
 # setup zoxide
