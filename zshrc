@@ -246,8 +246,8 @@ alias zshconfig="nvim $ZDOTDIR/zshrc"
 alias zshsource="source $ZDOTDIR/zshrc"
 
 # alias to easily switch between qmk firmware sources.
-[[ -d $HOME/dev/Keyboard/qmk/qmk_firmware ]] && alias qmk_og="qmk config set user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_firmware"
-[[ -d $HOME/dev/Keyboard/qmk/qmk_keychron ]] && alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/Keyboard/qmk/qmk_keychron"
+[[ -d $HOME/dev/keyboard/qmk/qmk_firmware ]] && alias qmk_og="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_firmware"
+[[ -d $HOME/dev/keyboard/qmk/qmk_keychron ]] && alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_keychron"
 
 # add alias to configure nvim
 alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
