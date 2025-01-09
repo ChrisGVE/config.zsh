@@ -337,6 +337,23 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
+###################
+# BAT CONFIGURATION
+###################
+alias cat="bat --style=numbers --color=always"
+function tail() {
+  if [[ -n $1 && $1 == "-f" ]]; then
+    tail $* | bat --paging=never -l log 
+  else
+    tail $*
+  fi
+}
+# Highlighting help messages
+alias bathelp="bat --plain --language=help"
+function help() {
+  "$@" --help 2>&1 | bathelp
+}
+
 # fzf alias to show preview 
 if type bat >/dev/null 2>&1; then 
   alias fzf="fzf --preview 'bat --style=numbers --color=always {}' --preview-window '~3'"
