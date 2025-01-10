@@ -2,6 +2,7 @@
 #
 zmodload zsh/zprof
 
+# function to add new path segments only if they are not already there
 function _add_path() {
   if [[ -n $* ]]; then
     [[ -d $* ]] && case ":${PATH}:" in *:$*:*)
@@ -13,24 +14,19 @@ function _add_path() {
   fi 
 }
 
-# Setting snap binary path
-_add_path "/snap/bin"
-_add_path "$HOME/.local/bin" 
+# # Configure zinit
+# export ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
+# # Download, install, and start Zinit
+# [ ! -d $ZINIT_HOME ] && mkdir -p "$(dirname $ZINIT_HOME)"
+# [ ! -d $ZINIT_HOME/.git ] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
+# source "${ZINIT_HOME}/zinit.zsh"
+#
+# zinit ice atinit'zmodload zsh/zprof' \
+    # atload'zprof | head -n 20; zmodload -u zsh/zprof'
 
-
-# Configure zinit
-export ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
-# Download, install, and start Zinit
-[ ! -d $ZINIT_HOME ] && mkdir -p "$(dirname $ZINIT_HOME)"
-[ ! -d $ZINIT_HOME/.git ] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
-source "${ZINIT_HOME}/zinit.zsh"
-
-zinit ice atinit'zmodload zsh/zprof' \
-    atload'zprof | head -n 20; zmodload -u zsh/zprof'
-
-if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
-  eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.yml)"
-fi
+# if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
+#   eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.yml)"
+# fi
 
 
 # OMP zsh-vi-mode integration
@@ -66,10 +62,7 @@ function zvm_after_select_vi_mode() {
 }
 
 ## Setup for man
-# export MANPAGER="nvim +Man!"
 if type batman >/dev/null 2>&1; then eval "$(batman --export-env)"; fi
-# export MANPAGER="sh -c 'col -bx | bat -l man -p'"
-# export MANROFFOPT="-c"
 
 # Uncomment the following line to use case-sensitive completion.
 export CASE_SENSITIVE="false"
@@ -107,69 +100,69 @@ setopt HIST_SAVE_NO_DUPS         # Don't write duplicate entries in the history 
 setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording entry.
 setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
 #
-zi wait lucid for \
-  blockf \
-  light-mode \
-        OMZL::clipboard.zsh \
-        OMZL::directories.zsh \
-        OMZL::functions.zsh \
-        OMZL::git.zsh \
-        OMZL::history.zsh \
-        OMZL::termsupport.zsh \
-        OMZL::spectrum.zsh \
-        OMZL::grep.zsh \
-        OMZL::theme-and-appearance.zsh \
-        OMZP::alias-finder \
-        OMZP::aliases \
-        OMZP::colorize \
-        OMZP::common-aliases \
-        OMZP::conda \
-        OMZP::dash \
-        OMZP::direnv \
-        OMZP::dotenv \
-        OMZP::fzf \
-        OMZP::git \
-        OMZP::github \
-        OMZP::history \
-        OMZP::kitty \
-        OMZP::mosh \
-        OMZP::pip \
-        OMZP::rust \
-        OMZP::sudo \
-        OMZP::systemd \
-        OMZP::terraform \
-        jeffreytse/zsh-vi-mode \
-        zsh-users/zsh-autosuggestions \
-        zdharma-continuum/history-search-multi-word
+# zi wait lucid for \
+#   blockf \
+#   light-mode \
+#         OMZL::clipboard.zsh \
+#         OMZL::directories.zsh \
+#         OMZL::functions.zsh \
+#         OMZL::git.zsh \
+#         OMZL::history.zsh \
+#         OMZL::termsupport.zsh \
+#         OMZL::spectrum.zsh \
+#         OMZL::grep.zsh \
+#         OMZL::theme-and-appearance.zsh \
+#         OMZP::alias-finder \
+#         OMZP::aliases \
+#         OMZP::colorize \
+#         OMZP::common-aliases \
+#         OMZP::conda \
+#         OMZP::dash \
+#         OMZP::direnv \
+#         OMZP::dotenv \
+#         OMZP::fzf \
+#         OMZP::git \
+#         OMZP::github \
+#         OMZP::history \
+#         OMZP::kitty \
+#         OMZP::mosh \
+#         OMZP::pip \
+#         OMZP::rust \
+#         OMZP::sudo \
+#         OMZP::systemd \
+#         OMZP::terraform \
+#         jeffreytse/zsh-vi-mode \
+#         zsh-users/zsh-autosuggestions \
+#         zdharma-continuum/history-search-multi-word
 
-[[ -d /usr/local/opt/curl/share/zsh/site-functions ]] && zi ice as"completion" \
-	/usr/local/opt/curl/share/zsh/site-functions/_curl
-
-[[ ! -z "$( ls -A /usr/local/share/zsh/site-functions )" ]] && zi ice as"completion" \
-        /usr/local/share/zsh/site-functions/*
-
-zi for \
-  atload="zicompinit; zicdreplay" \
-  blockf \
-  wait lucid \
-        zsh-users/zsh-completions \
-        zdharma-continuum/fast-syntax-highlighting
-
-# Enable alias-finder
-zstyle ':omz:plugins:alias-finder' autoload yes # disabled by default
-zstyle ':omz:plugins:alias-finder' longer yes # disabled by default
-zstyle ':omz:plugins:alias-finder' exact yes # disabled by default
-zstyle ':omz:plugins:alias-finder' cheaper yes # disabled by default
+# [[ -d /usr/local/opt/curl/share/zsh/site-functions ]] && zi ice as"completion" \
+# 	/usr/local/opt/curl/share/zsh/site-functions/_curl
+#
+# [[ ! -z "$( ls -A /usr/local/share/zsh/site-functions )" ]] && zi ice as"completion" \
+#         /usr/local/share/zsh/site-functions/*
+#
+# zi for \
+#   atload="zicompinit; zicdreplay" \
+#   blockf \
+#   wait lucid \
+#         zsh-users/zsh-completions \
+#         zdharma-continuum/fast-syntax-highlighting
+#
+# # Enable alias-finder
+# zstyle ':omz:plugins:alias-finder' autoload yes # disabled by default
+# zstyle ':omz:plugins:alias-finder' longer yes # disabled by default
+# zstyle ':omz:plugins:alias-finder' exact yes # disabled by default
+# zstyle ':omz:plugins:alias-finder' cheaper yes # disabled by default
 
 # Setting up auto-completions
-zstyle ':completion:*' menu select
-zmodload zsh/complist
+# zstyle ':completion:*' menu select
+# zmodload zsh/complist
 
 # Use vim keys in tab complete menu
-bindkey -M menuselect 'h' vi-backward-char
-bindkey -M menuselect 'k' vi-up-line-or-history
-bindkey -M menuselect 'l' vi-forward-char
-bindkey -M menuselect 'j' vi-down-line-or-history
+# bindkey -M menuselect 'h' vi-backward-char
+# bindkey -M menuselect 'k' vi-up-line-or-history
+# bindkey -M menuselect 'l' vi-forward-char
+# bindkey -M menuselect 'j' vi-down-line-or-history
 bindkey -v '^?' backward-delete-char
 bindkey '^n' expand-or-complete
 bindkey '^p' reverse-menu-complete
@@ -181,7 +174,7 @@ export ZSH_COLORIZE_CHROMA_FORMATTER="terminal16m"
 
 # Setting up Perl
 # PERL_MM_OPT="INSTALL_BASE=$XDG_CACHE_HOME/perl5" cpan local::lib
-eval "$(perl -I$HOME/dev/tools/perl5/lib/perl5 -Mlocal::lib=$HOME/dev/tools/perl5)"
+# eval "$(perl -I$HOME/dev/tools/perl5/lib/perl5 -Mlocal::lib=$HOME/dev/tools/perl5)"
 
 
 # Setting curl path
@@ -246,8 +239,8 @@ alias zshconfig="nvim $ZDOTDIR/zshrc"
 alias zshsource="source $ZDOTDIR/zshrc"
 
 # alias to easily switch between qmk firmware sources.
-[[ -d $HOME/dev/keyboard/qmk/qmk_firmware ]] && alias qmk_og="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_firmware"
-[[ -d $HOME/dev/keyboard/qmk/qmk_keychron ]] && alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_keychron"
+alias qmk_og="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_firmware"
+alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_keychron"
 
 # add alias to configure nvim
 alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
@@ -283,7 +276,7 @@ exit() {
 
 alias tmux_main="tmux new-session -ADs main"
 
-autoload -U zmv
+# autoload -U zmv
 alias zcp='zmv -C'
 alias zln='zmv -L'
 
@@ -319,7 +312,7 @@ export CPPFLAGS="-I/usr/local/opt/mysql@8.4/include -I/usr/local/opt/curl/includ
 #   - the correct directories to the PATH
 #   - auto-completion for the opam binary
 # This section can be safely removed at any time if needed.
-[[ ! -r '/Users/chris/.opam/opam-init/init.zsh' ]] || source '/Users/chris/.opam/opam-init/init.zsh' > /dev/null 2> /dev/null
+# [[ ! -r '/Users/chris/.opam/opam-init/init.zsh' ]] || source '/Users/chris/.opam/opam-init/init.zsh' > /dev/null 2> /dev/null
 # END opam configuration
 
 # >>> conda initialize >>>
@@ -363,7 +356,7 @@ fi
 if type zoxide >/dev/null 2>&1; then eval "$(zoxide init zsh --cmd cd)"; fi
 
 # Setup broot
-[[ -f $HOME/.config/broot/launcher/bash/br ]] && source $HOME/.config/broot/launcher/bash/br
+# [[ -f $HOME/.config/broot/launcher/bash/br ]] && source $HOME/.config/broot/launcher/bash/br
 
 if type fast-theme > /dev/null 2>&1; then fast-theme XDG:catppuccin-mocha > /dev/null 2>&1; fi
 
@@ -377,7 +370,7 @@ else
   fi
 fi
 
-autoload -Uz compinit
-compinit
-zi cdreplay -q 
-
+# autoload -Uz compinit
+# compinit
+# zi cdreplay -q 
+#
