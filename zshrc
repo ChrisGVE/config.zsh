@@ -30,37 +30,37 @@ function _add_path() {
 
 
 # OMP zsh-vi-mode integration
-_omp_redraw-prompt() {
-  # local precmd
-  for precmd in "${precmd_functions[@]}"; do
-    "$precmd"
-  done
-  zle && zle reset-prompt
-}
-
-export POSH_VI_MODE="INSERT"
-
-function zvm_after_select_vi_mode() {
-  case $ZVM_MODE in
-  $ZVM_MODE_NORMAL)
-    POSH_VI_MODE="NORMAL"
-    ;;
-  $ZVM_MODE_INSERT)
-    POSH_VI_MODE="INSERT"
-    ;;
-  $ZVM_MODE_VISUAL)
-    POSH_VI_MODE="VISUAL"
-    ;;
-  $ZVM_MODE_VISUAL_LINE)
-    POSH_VI_MODE="V-LINE"
-    ;;
-  $ZVM_MODE_REPLACE)
-    POSH_VI_MODE="REPLACE"
-    ;;
-  esac
-  _omp_redraw-prompt
-}
-
+# _omp_redraw-prompt() {
+#   # local precmd
+#   for precmd in "${precmd_functions[@]}"; do
+#     "$precmd"
+#   done
+#   zle && zle reset-prompt
+# }
+#
+# export POSH_VI_MODE="INSERT"
+#
+# function zvm_after_select_vi_mode() {
+#   case $ZVM_MODE in
+#   $ZVM_MODE_NORMAL)
+#     POSH_VI_MODE="NORMAL"
+#     ;;
+#   $ZVM_MODE_INSERT)
+#     POSH_VI_MODE="INSERT"
+#     ;;
+#   $ZVM_MODE_VISUAL)
+#     POSH_VI_MODE="VISUAL"
+#     ;;
+#   $ZVM_MODE_VISUAL_LINE)
+#     POSH_VI_MODE="V-LINE"
+#     ;;
+#   $ZVM_MODE_REPLACE)
+#     POSH_VI_MODE="REPLACE"
+#     ;;
+#   esac
+#   _omp_redraw-prompt
+# }
+#
 ## Setup for man
 if type batman >/dev/null 2>&1; then eval "$(batman --export-env)"; fi
 
