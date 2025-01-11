@@ -1,11 +1,13 @@
 #!/usr/bin/zsh
 
-zmodload zsh/zprof
+# zmodload zsh/zprof
 
 ####################
 # LOAD ENVIRONMENT
 ####################
 source ~/.zshenv
+
+export HOMEBREW_PREFIX="$(brew --prefix)"
 
 ####################
 # HELPER FUNCTIONS
@@ -70,14 +72,6 @@ export HYPHEN_INSENSITIVE="true"
 export COMPLETION_WAITING_DOTS="true"
 
 export ZSH_CUSTOM=$XDG_CONFIG_HOME/zsh
-
-# ZSH-VI-MODE
-export ZVM_NORMAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
-export ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
-export ZVM_VISUAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
-export ZVM_VISUAL_LINE_MODE_CURSOR=$ZVM_CURSOR_BLOCK
-export ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_BLINKING_UNDERLINE
-export ZVM_VI_HIGHLIGHT_BACKGROUND=#45475a
 
 # Oh-My-Zsh Config
 #
@@ -159,7 +153,7 @@ plugins=(git)
 
 export ZSH="$ZDOTDIR/ohmyzsh"
 
-# source $ZSH/oh-my-zsh.sh
+source $ZSH/oh-my-zsh.sh
 
 ############################
 # Other configs
@@ -332,9 +326,6 @@ fi
 # setup zoxide
 if type zoxide >/dev/null 2>&1; then eval "$(zoxide init zsh --cmd cd)"; fi
 
-# Setup broot
-# [[ -f $HOME/.config/broot/launcher/bash/br ]] && source $HOME/.config/broot/launcher/bash/br
-
 if type fast-theme > /dev/null 2>&1; then fast-theme XDG:catppuccin-mocha > /dev/null 2>&1; fi
 
 # Setup the ssh-agent if it is not yet running
@@ -355,40 +346,64 @@ fi
 # Oh-My-Posh CONFIGURATION
 ############################
 
-# OMP zsh-vi-mode integration
-# _omp_redraw-prompt() {
-#   # local precmd
-#   for precmd in "${precmd_functions[@]}"; do
-#     "$precmd"
-#   done
-#   zle && zle reset-prompt
-# }
-#
-# export POSH_VI_MODE="INSERT"
-#
-# function zvm_after_select_vi_mode() {
-#   case $ZVM_MODE in
-#   $ZVM_MODE_NORMAL)
-#     POSH_VI_MODE="NORMAL"
-#     ;;
-#   $ZVM_MODE_INSERT)
-#     POSH_VI_MODE="INSERT"
-#     ;;
-#   $ZVM_MODE_VISUAL)
-#     POSH_VI_MODE="VISUAL"
-#     ;;
-#   $ZVM_MODE_VISUAL_LINE)
-#     POSH_VI_MODE="V-LINE"
-#     ;;
-#   $ZVM_MODE_REPLACE)
-#     POSH_VI_MODE="REPLACE"
-#     ;;
-#   esac
-#   _omp_redraw-prompt
-# }
-#
-# if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
-#   eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml)"
-# fi
+############################
+# Plugins
+############################
 
-zprof
+# zsh-autosuggestions
+source $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+
+# OMP zsh-vi-mode integration
+_omp_redraw-prompt() {
+  # local precmd
+  for precmd in "${precmd_functions[@]}"; do
+    "$precmd"
+  done
+  zle && zle reset-prompt
+}
+
+export POSH_VI_MODE="INSERT"
+
+function zvm_after_select_vi_mode() {
+  case $ZVM_MODE in
+  $ZVM_MODE_NORMAL)
+    POSH_VI_MODE="NORMAL"
+    ;;
+  $ZVM_MODE_INSERT)
+    POSH_VI_MODE="INSERT"
+    ;;
+  $ZVM_MODE_VISUAL)
+    POSH_VI_MODE="VISUAL"
+    ;;
+  $ZVM_MODE_VISUAL_LINE)
+    POSH_VI_MODE="V-LINE"
+    ;;
+  $ZVM_MODE_REPLACE)
+    POSH_VI_MODE="REPLACE"
+    ;;
+  esac
+  _omp_redraw-prompt
+}
+
+if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
+  eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml)"
+fi
+
+# ZSH-VI-MODE
+export ZVM_NORMAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
+export ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
+export ZVM_VISUAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
+export ZVM_VISUAL_LINE_MODE_CURSOR=$ZVM_CURSOR_BLOCK
+export ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_BLINKING_UNDERLINE
+export ZVM_VI_HIGHLIGHT_BACKGROUND=#45475a
+
+# Vi mode
+source $HOMEBREW_PREFIX/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
+
+# Syntax highlighting
+source $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source $HOMEBREW_PREFIX/opt/zsh-fast-syntax-highlighting/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
+# Auto completion
+source $HOMEBREW_PREFIX/share/zsh-autocomplete/zsh-autocomplete.plugin.zsh
+# zprof
