@@ -1,6 +1,15 @@
 #!/usr/bin/zsh
-#
+
 zmodload zsh/zprof
+
+####################
+# LOAD ENVIRONMENT
+####################
+source ~/.zshenv
+
+####################
+# HELPER FUNCTIONS
+####################
 
 # function to add new path segments only if they are not already there
 function _add_path() {
@@ -14,55 +23,41 @@ function _add_path() {
   fi 
 }
 
-# # Configure zinit
-# export ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
-# # Download, install, and start Zinit
-# [ ! -d $ZINIT_HOME ] && mkdir -p "$(dirname $ZINIT_HOME)"
-# [ ! -d $ZINIT_HOME/.git ] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
-# source "${ZINIT_HOME}/zinit.zsh"
-#
-# zinit ice atinit'zmodload zsh/zprof' \
-    # atload'zprof | head -n 20; zmodload -u zsh/zprof'
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+__conda_setup="$('/usr/local/Caskroom/miniconda/base/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "/usr/local/Caskroom/miniconda/base/etc/profile.d/conda.sh" ]; then
+        . "/usr/local/Caskroom/miniconda/base/etc/profile.d/conda.sh"
+    else
+        export PATH="/usr/local/Caskroom/miniconda/base/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+# <<< conda initialize <<<
 
-# if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
-#   eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.yml)"
-# fi
+# Override exit to prevent exiting the last pane in tmux
+exit() {
+    if [[ -z $TMUX ]]; then
+        builtin exit
+        return
+    fi
 
+    panes=$(tmux list-panes | wc -l)
+    wins=$(tmux list-windows | wc -l)
+    count=$(($panes + $wins - 1))
+    if [ $count -eq 1 ]; then
+        tmux detach
+    else
+        builtin exit
+    fi
+}
 
-# OMP zsh-vi-mode integration
-# _omp_redraw-prompt() {
-#   # local precmd
-#   for precmd in "${precmd_functions[@]}"; do
-#     "$precmd"
-#   done
-#   zle && zle reset-prompt
-# }
-#
-# export POSH_VI_MODE="INSERT"
-#
-# function zvm_after_select_vi_mode() {
-#   case $ZVM_MODE in
-#   $ZVM_MODE_NORMAL)
-#     POSH_VI_MODE="NORMAL"
-#     ;;
-#   $ZVM_MODE_INSERT)
-#     POSH_VI_MODE="INSERT"
-#     ;;
-#   $ZVM_MODE_VISUAL)
-#     POSH_VI_MODE="VISUAL"
-#     ;;
-#   $ZVM_MODE_VISUAL_LINE)
-#     POSH_VI_MODE="V-LINE"
-#     ;;
-#   $ZVM_MODE_REPLACE)
-#     POSH_VI_MODE="REPLACE"
-#     ;;
-#   esac
-#   _omp_redraw-prompt
-# }
-#
-## Setup for man
-if type batman >/dev/null 2>&1; then eval "$(batman --export-env)"; fi
+###########################
+# Oh-My-Zsh CONFIGURATION
+###########################
 
 # Uncomment the following line to use case-sensitive completion.
 export CASE_SENSITIVE="false"
@@ -99,6 +94,31 @@ setopt HIST_IGNORE_SPACE         # Don't record an entry starting with a space.
 setopt HIST_SAVE_NO_DUPS         # Don't write duplicate entries in the history file.
 setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording entry.
 setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
+
+# # Enable alias-finder
+# zstyle ':omz:plugins:alias-finder' autoload yes # disabled by default
+# zstyle ':omz:plugins:alias-finder' longer yes # disabled by default
+# zstyle ':omz:plugins:alias-finder' exact yes # disabled by default
+# zstyle ':omz:plugins:alias-finder' cheaper yes # disabled by default
+
+# Setting up auto-completions
+# zstyle ':completion:*' menu select
+# zmodload zsh/complist
+
+# Use vim keys in tab complete menu
+# bindkey -M menuselect 'h' vi-backward-char
+# bindkey -M menuselect 'k' vi-up-line-or-history
+# bindkey -M menuselect 'l' vi-forward-char
+# bindkey -M menuselect 'j' vi-down-line-or-history
+bindkey -v '^?' backward-delete-char
+bindkey '^n' expand-or-complete
+bindkey '^p' reverse-menu-complete
+
+# Setting up colorize
+export ZSH_COLORIZE_TOOL=chroma
+export ZSH_COLORIZE_STYLE="colorful"
+export ZSH_COLORIZE_CHROMA_FORMATTER="terminal16m"
+
 #
 # zi wait lucid for \
 #   blockf \
@@ -135,6 +155,19 @@ setopt HIST_VERIFY               # Don't execute immediately upon history expans
 #         zsh-users/zsh-autosuggestions \
 #         zdharma-continuum/history-search-multi-word
 
+plugins=(git)
+
+export ZSH="$ZDOTDIR/ohmyzsh"
+
+# source $ZSH/oh-my-zsh.sh
+
+############################
+# Other configs
+############################
+
+## Setup for man
+if type batman >/dev/null 2>&1; then eval "$(batman --export-env)"; fi
+
 # [[ -d /usr/local/opt/curl/share/zsh/site-functions ]] && zi ice as"completion" \
 # 	/usr/local/opt/curl/share/zsh/site-functions/_curl
 #
@@ -148,30 +181,6 @@ setopt HIST_VERIFY               # Don't execute immediately upon history expans
 #         zsh-users/zsh-completions \
 #         zdharma-continuum/fast-syntax-highlighting
 #
-# # Enable alias-finder
-# zstyle ':omz:plugins:alias-finder' autoload yes # disabled by default
-# zstyle ':omz:plugins:alias-finder' longer yes # disabled by default
-# zstyle ':omz:plugins:alias-finder' exact yes # disabled by default
-# zstyle ':omz:plugins:alias-finder' cheaper yes # disabled by default
-
-# Setting up auto-completions
-# zstyle ':completion:*' menu select
-# zmodload zsh/complist
-
-# Use vim keys in tab complete menu
-# bindkey -M menuselect 'h' vi-backward-char
-# bindkey -M menuselect 'k' vi-up-line-or-history
-# bindkey -M menuselect 'l' vi-forward-char
-# bindkey -M menuselect 'j' vi-down-line-or-history
-bindkey -v '^?' backward-delete-char
-bindkey '^n' expand-or-complete
-bindkey '^p' reverse-menu-complete
-
-# Setting up colorize
-export ZSH_COLORIZE_TOOL=chroma
-export ZSH_COLORIZE_STYLE="colorful"
-export ZSH_COLORIZE_CHROMA_FORMATTER="terminal16m"
-
 # Setting up Perl
 # PERL_MM_OPT="INSTALL_BASE=$XDG_CACHE_HOME/perl5" cpan local::lib
 # eval "$(perl -I$HOME/dev/tools/perl5/lib/perl5 -Mlocal::lib=$HOME/dev/tools/perl5)"
@@ -257,23 +266,6 @@ _add_path "/usr/local/sbin"
 # Allas for taskwarrior-tui
 if type taskwarrior-tui > /dev/null 2>&1; then alias tt="taskwarrior-tui"; fi
 
-# Override exit to prevent exiting the last pane in tmux
-exit() {
-    if [[ -z $TMUX ]]; then
-        builtin exit
-        return
-    fi
-
-    panes=$(tmux list-panes | wc -l)
-    wins=$(tmux list-windows | wc -l)
-    count=$(($panes + $wins - 1))
-    if [ $count -eq 1 ]; then
-        tmux detach
-    else
-        builtin exit
-    fi
-}
-
 alias tmux_main="tmux new-session -ADs main"
 
 # autoload -U zmv
@@ -314,21 +306,6 @@ export CPPFLAGS="-I/usr/local/opt/mysql@8.4/include -I/usr/local/opt/curl/includ
 # This section can be safely removed at any time if needed.
 # [[ ! -r '/Users/chris/.opam/opam-init/init.zsh' ]] || source '/Users/chris/.opam/opam-init/init.zsh' > /dev/null 2> /dev/null
 # END opam configuration
-
-# >>> conda initialize >>>
-# !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/usr/local/Caskroom/miniconda/base/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
-if [ $? -eq 0 ]; then
-    eval "$__conda_setup"
-else
-    if [ -f "/usr/local/Caskroom/miniconda/base/etc/profile.d/conda.sh" ]; then
-        . "/usr/local/Caskroom/miniconda/base/etc/profile.d/conda.sh"
-    else
-        export PATH="/usr/local/Caskroom/miniconda/base/bin:$PATH"
-    fi
-fi
-unset __conda_setup
-# <<< conda initialize <<<
 
 ###################
 # BAT CONFIGURATION
@@ -374,3 +351,44 @@ fi
 # compinit
 # zi cdreplay -q 
 #
+############################
+# Oh-My-Posh CONFIGURATION
+############################
+
+# OMP zsh-vi-mode integration
+# _omp_redraw-prompt() {
+#   # local precmd
+#   for precmd in "${precmd_functions[@]}"; do
+#     "$precmd"
+#   done
+#   zle && zle reset-prompt
+# }
+#
+# export POSH_VI_MODE="INSERT"
+#
+# function zvm_after_select_vi_mode() {
+#   case $ZVM_MODE in
+#   $ZVM_MODE_NORMAL)
+#     POSH_VI_MODE="NORMAL"
+#     ;;
+#   $ZVM_MODE_INSERT)
+#     POSH_VI_MODE="INSERT"
+#     ;;
+#   $ZVM_MODE_VISUAL)
+#     POSH_VI_MODE="VISUAL"
+#     ;;
+#   $ZVM_MODE_VISUAL_LINE)
+#     POSH_VI_MODE="V-LINE"
+#     ;;
+#   $ZVM_MODE_REPLACE)
+#     POSH_VI_MODE="REPLACE"
+#     ;;
+#   esac
+#   _omp_redraw-prompt
+# }
+#
+# if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
+#   eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml)"
+# fi
+
+zprof
