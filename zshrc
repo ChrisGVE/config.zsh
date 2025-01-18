@@ -305,11 +305,14 @@ export CPPFLAGS="-I/usr/local/opt/mysql@8.4/include -I/usr/local/opt/curl/includ
 # BAT CONFIGURATION
 ###################
 alias cat="bat --style=numbers --color=always"
+
+TAIL_BIN=$(which tail)
+
 function tail() {
   if [[ -n $1 && $1 == "-f" ]]; then
-    tail $* | bat --paging=never -l log 
+    $TAIL_BIN $* | bat --paging=never -l log 
   else
-    tail $*
+    $TAIL_BIN $*
   fi
 }
 # Highlighting help messages
