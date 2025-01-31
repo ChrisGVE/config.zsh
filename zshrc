@@ -248,6 +248,10 @@ alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_keyc
 # add alias to configure nvim
 alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
 
+# aliases for nvim testing in various configurations
+alias nvim-telescope='NVIM_APPNAME=nvim-telescope nvim'
+alias nvim-fzf='NVIM_APPNAME=nvim-fzf nvim'
+
 # add custom bin path and .local/bin
 _add_path "$HOME/bin"
 
