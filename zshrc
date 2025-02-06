@@ -2,8 +2,6 @@
 
 # zmodload zsh/zprof
 
-#!/usr/bin/zsh
-
 ####################
 # INITIAL SETUP
 ####################
@@ -134,56 +132,131 @@ conda() {
 }
 
 ####################
-# HISTORY CONFIGURATION
-####################
-setopt BANG_HIST                 # Treat the '!' character specially during expansion.
-setopt EXTENDED_HISTORY          # Write the history file in the ":start:elapsed;command" format.
-setopt INC_APPEND_HISTORY        # Write to the history file immediately, not when the shell exits.
-setopt SHARE_HISTORY             # Share history between all sessions.
-setopt HIST_EXPIRE_DUPS_FIRST    # Expire duplicate entries first when trimming history.
-setopt HIST_IGNORE_DUPS          # Don't record an entry that was just recorded again.
-setopt HIST_IGNORE_ALL_DUPS      # Delete old recorded entry if new entry is a duplicate.
-setopt HIST_FIND_NO_DUPS         # Do not display a line previously found.
-setopt HIST_IGNORE_SPACE         # Don't record an entry starting with a space.
-setopt HIST_SAVE_NO_DUPS         # Don't write duplicate entries in the history file.
-setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording entry.
-setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
-
-# Custom history search widget
-function history_search_up() {
-    local prefix=${BUFFER}
-    zle up-history
-    while [[ -n $prefix && $BUFFER != ${prefix}* ]]; do
-        zle up-history
-    done
-}
-
-function history_search_down() {
-    local prefix=${BUFFER}
-    zle down-history
-    while [[ -n $prefix && $BUFFER != ${prefix}* ]]; do
-        zle down-history
-    done
-}
-
-zle -N history_search_up
-zle -N history_search_down
-
-# Clear existing bindings
-bindkey -r '^[OA'
-bindkey -r '^[OB'
-bindkey -r '^[[A'
-bindkey -r '^[[B'
-
-# Bind both sequences
-bindkey '^[OA' history_search_up
-bindkey '^[OB' history_search_down
-
-####################
 # OH-MY-ZSH CONFIGURATION
 ####################
-plugins=(git)
+plugins=(git history-substring-search)
 source $ZSH/oh-my-zsh.sh
+
+####################
+# HISTORY CONFIGURATION
+####################
+setopt BANG_HIST
+setopt EXTENDED_HISTORY
+setopt INC_APPEND_HISTORY
+setopt SHARE_HISTORY
+setopt HIST_EXPIRE_DUPS_FIRST
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_FIND_NO_DUPS
+setopt HIST_IGNORE_SPACE
+setopt HIST_SAVE_NO_DUPS
+setopt HIST_REDUCE_BLANKS
+setopt HIST_VERIFY
+
+# Explicitly set the search behavior
+HISTORY_SUBSTRING_SEARCH_PREFIXED=1
+
+####################
+# VI MODE AND CURSOR CONFIGURATION
+####################
+# Set up initial vi mode state
+export POSH_VI_MODE="INSERT"
+
+# Initialize zsh-vi-mode first
+source $HOMEBREW_PREFIX/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
+
+# Function to update cursor and mode and refresh prompt
+function _update_vim_mode() {
+    local mode=$1
+    export POSH_VI_MODE="$mode"
+    
+    case $mode in
+        "INSERT")
+            echo -ne '\e[5 q' # Beam cursor
+            ;;
+        *)
+            echo -ne '\e[1 q' # Block cursor
+            ;;
+    esac
+    
+    if [[ -n "$POSH_SHELL_VERSION" ]]; then
+        if command -v oh-my-posh >/dev/null 2>&1; then
+            PROMPT="$(oh-my-posh prompt print primary --config="$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" --shell=zsh)"
+            zle && zle reset-prompt
+        fi
+    fi
+}
+
+# Define mode switching function
+function zvm_after_select_vi_mode() {
+    case $ZVM_MODE in
+        $ZVM_MODE_NORMAL)
+            _update_vim_mode "NORMAL"
+            ;;
+        $ZVM_MODE_INSERT)
+            _update_vim_mode "INSERT"
+            ;;
+        $ZVM_MODE_VISUAL)
+            _update_vim_mode "VISUAL"
+            ;;
+        $ZVM_MODE_VISUAL_LINE)
+            _update_vim_mode "V-LINE"
+            ;;
+        $ZVM_MODE_REPLACE)
+            _update_vim_mode "REPLACE"
+            ;;
+    esac
+}
+
+# Set up line init handler
+function zle-line-init() {
+    _update_vim_mode "INSERT"
+    zle -K viins # Ensure we're in insert mode
+}
+zle -N zle-line-init
+
+# Set up keymap handler
+function zle-keymap-select() {
+    case ${KEYMAP} in
+        vicmd)
+            _update_vim_mode "NORMAL"
+            ;;
+        main|viins)
+            _update_vim_mode "INSERT"
+            ;;
+    esac
+}
+zle -N zle-keymap-select
+
+# Handle key bindings after vi-mode initialization
+function zvm_after_init() {
+    # Set initial cursor shape
+    echo -ne '\e[5 q'
+    
+    # History search bindings for both modes
+    bindkey -M vicmd '^[[A' history-substring-search-up
+    bindkey -M vicmd '^[[B' history-substring-search-down
+    bindkey -M viins '^[[A' history-substring-search-up
+    bindkey -M viins '^[[B' history-substring-search-down
+    
+    # Additional key bindings
+    bindkey -M viins '^?' backward-delete-char
+    bindkey -M viins '^n' expand-or-complete
+    bindkey -M viins '^p' reverse-menu-complete
+}
+
+# Reset cursor on exit
+function zle-line-finish() {
+    echo -ne '\e[5 q'
+}
+zle -N zle-line-finish
+
+####################
+# OH-MY-POSH CONFIGURATION
+####################
+if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
+    eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml)"
+fi
 
 ####################
 # PLUGIN CONFIGURATION
@@ -194,18 +267,8 @@ ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 source $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 
-# Fast-syntax-highlighting
+# Fast-syntax-highlighting (load last to properly highlight everything)
 source $HOMEBREW_PREFIX/opt/zsh-fast-syntax-highlighting/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
-
-# Auto completion
-source $HOMEBREW_PREFIX/share/zsh-autocomplete/zsh-autocomplete.plugin.zsh
-
-####################
-# KEY BINDINGS
-####################
-bindkey -v '^?' backward-delete-char
-bindkey '^n' expand-or-complete
-bindkey '^p' reverse-menu-complete
 
 ####################
 # TOOL CONFIGURATIONS
@@ -243,37 +306,6 @@ else
     if [ "$(ssh-add -l)" == "The agent has no identities."]; then
         ssh-add ~/.ssh/id_rsa
     fi
-fi
-
-####################
-# VI MODE CONFIGURATION
-####################
-export POSH_VI_MODE="INSERT"
-export ZVM_NORMAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
-export ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
-export ZVM_VISUAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
-export ZVM_VISUAL_LINE_MODE_CURSOR=$ZVM_CURSOR_BLOCK
-export ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_BLINKING_UNDERLINE
-export ZVM_VI_HIGHLIGHT_BACKGROUND=#45475a
-
-source $HOMEBREW_PREFIX/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
-
-function zvm_after_select_vi_mode() {
-    case $ZVM_MODE in
-        $ZVM_MODE_NORMAL)   POSH_VI_MODE="NORMAL"   ;;
-        $ZVM_MODE_INSERT)   POSH_VI_MODE="INSERT"   ;;
-        $ZVM_MODE_VISUAL)   POSH_VI_MODE="VISUAL"   ;;
-        $ZVM_MODE_VISUAL_LINE) POSH_VI_MODE="V-LINE"   ;;
-        $ZVM_MODE_REPLACE)  POSH_VI_MODE="REPLACE"  ;;
-    esac
-    _omp_redraw-prompt
-}
-
-####################
-# OH-MY-POSH CONFIGURATION
-####################
-if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
-    eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml)"
 fi
 
 ####################
