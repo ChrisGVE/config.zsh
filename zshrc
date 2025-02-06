@@ -256,18 +256,18 @@ export ZVM_VISUAL_LINE_MODE_CURSOR=$ZVM_CURSOR_BLOCK
 export ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_BLINKING_UNDERLINE
 export ZVM_VI_HIGHLIGHT_BACKGROUND=#45475a
 
-# source $HOMEBREW_PREFIX/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
+source $HOMEBREW_PREFIX/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
 
-# function zvm_after_select_vi_mode() {
-#     case $ZVM_MODE in
-#         $ZVM_MODE_NORMAL)   POSH_VI_MODE="NORMAL"   ;;
-#         $ZVM_MODE_INSERT)   POSH_VI_MODE="INSERT"   ;;
-#         $ZVM_MODE_VISUAL)   POSH_VI_MODE="VISUAL"   ;;
-#         $ZVM_MODE_VISUAL_LINE) POSH_VI_MODE="V-LINE"   ;;
-#         $ZVM_MODE_REPLACE)  POSH_VI_MODE="REPLACE"  ;;
-#     esac
-#     _omp_redraw-prompt
-# }
+function zvm_after_select_vi_mode() {
+    case $ZVM_MODE in
+        $ZVM_MODE_NORMAL)   POSH_VI_MODE="NORMAL"   ;;
+        $ZVM_MODE_INSERT)   POSH_VI_MODE="INSERT"   ;;
+        $ZVM_MODE_VISUAL)   POSH_VI_MODE="VISUAL"   ;;
+        $ZVM_MODE_VISUAL_LINE) POSH_VI_MODE="V-LINE"   ;;
+        $ZVM_MODE_REPLACE)  POSH_VI_MODE="REPLACE"  ;;
+    esac
+    _omp_redraw-prompt
+}
 
 ####################
 # OH-MY-POSH CONFIGURATION
