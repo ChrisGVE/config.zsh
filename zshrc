@@ -308,6 +308,9 @@ else
     fi
 fi
 
+# Setup batman
+eval "$(batman --export-env)"
+
 ####################
 # ALIASES
 ####################
