@@ -84,6 +84,7 @@ _append_to_env "/usr/local/opt/sphinx-doc/bin" ":" "PATH"
 _append_to_env "/usr/local/opt/ruby/bin" ":" "PATH"
 _append_to_env "/usr/local/opt/ruby/lib" "-L" "LDFLAGS"
 _append_to_env "/usr/local/opt/ruby/include" "-I" "CPPFLAGS"
+_append_to_env "/usr/local/opt/ruby/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
 
 # Curl configuration
 _append_to_env "/usr/local/opt/curl/bin" ":" "PATH"
