@@ -199,7 +199,9 @@ install_neovim() {
 # Main installation
 main() {
 	# Source zshenv to get XDG paths
+	set -f # Disable glob expansion
 	source "${XDG_CONFIG_HOME:-$HOME/.config}/zsh/zshenv"
+	set +f # Re-enable glob expansion
 
 	# Create necessary directories
 	mkdir -p "${XDG_CONFIG_HOME}/zsh/oh-my-posh"
