@@ -3,10 +3,38 @@
 # zmodload zsh/zprof
 
 ####################
+# DETECT OS
+####################
+case "$(uname -s)" in
+    Darwin*)    
+        export OS_TYPE="macos"
+        if which brew >/dev/null 2>&1; then
+            export HOMEBREW_PREFIX="$(brew --prefix)"
+        fi
+        ;;
+    Linux*)     
+        export OS_TYPE="linux"
+        # More reliable Raspberry Pi detection methods
+        if [[ -f /sys/firmware/devicetree/base/model ]]; then
+            if grep -q "Raspberry Pi" /sys/firmware/devicetree/base/model; then
+                export OS_TYPE="raspberrypi"
+            fi
+        # Fallback detection method
+        elif [[ -f /proc/cpuinfo ]]; then
+            if grep -q "^Model.*:.*Raspberry" /proc/cpuinfo; then
+                export OS_TYPE="raspberrypi"
+            fi
+        fi
+        ;;
+    *)          
+        export OS_TYPE="unknown"
+        ;;
+esac
+
+####################
 # INITIAL SETUP
 ####################
 source ~/.zshenv
-export HOMEBREW_PREFIX="$(brew --prefix)"
 
 ####################
 # CORE EXPORTS
@@ -41,6 +69,37 @@ export GOTOOLCHAIN=local
 ####################
 # HELPER FUNCTIONS
 ####################
+_source_if_exists() {
+    if [[ -f "$1" ]]; then
+        source "$1"
+    fi
+}
+
+_get_plugin_path() {
+    local plugin_name="$1"
+    local plugin_file="$2"
+    
+    case "$OS_TYPE" in
+        macos)
+            echo "$HOMEBREW_PREFIX/opt/$plugin_name/$plugin_file"
+            ;;
+        raspberrypi|linux)
+            # Check common Linux paths
+            local paths=(
+                "$HOME/.zsh/plugins/$plugin_name/$plugin_file"
+                "/usr/share/zsh/plugins/$plugin_name/$plugin_file"
+                "/usr/local/share/zsh/plugins/$plugin_name/$plugin_file"
+            )
+            for path in "${paths[@]}"; do
+                if [[ -f "$path" ]]; then
+                    echo "$path"
+                    return
+                fi
+            done
+            ;;
+    esac
+}
+
 _append_to_env() {
     local path_segment=$1
     local separator=$2
@@ -71,9 +130,10 @@ _append_to_env() {
 # PATH CONFIGURATIONS
 ####################
 # Core system paths
+_append_to_env "/usr/local/sbin" ":" "PATH"
 _append_to_env "$HOME/bin" ":" "PATH"
 _append_to_env "$HOME/Scripts" ":" "PATH"
-_append_to_env "/usr/local/sbin" ":" "PATH"
+_append_to_env "$HOME/.local/bin" ":" "PATH"
 
 # Development tools
 _append_to_env "/usr/local/opt/openjdk/bin" ":" "PATH"
@@ -112,24 +172,34 @@ _append_to_env "/usr/local/opt/gnu-sed/libexec/gnubin" ":" "PATH"
 # CONDA SETUP (DEFERRED LOADING)
 ####################
 conda() {
-    # Remove this function
     unfunction conda
     
-    # Setup conda
-    __conda_setup="$('/usr/local/Caskroom/miniconda/base/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
-    if [ $? -eq 0 ]; then
-        eval "$__conda_setup"
-    else
-        if [ -f "/usr/local/Caskroom/miniconda/base/etc/profile.d/conda.sh" ]; then
-            . "/usr/local/Caskroom/miniconda/base/etc/profile.d/conda.sh"
-        else
-            export PATH="/usr/local/Caskroom/miniconda/base/bin:$PATH"
-        fi
-    fi
-    unset __conda_setup
+    local conda_path
+    case "$OS_TYPE" in
+        macos)
+            conda_path="/usr/local/Caskroom/miniconda/base"
+            ;;
+        raspberrypi|linux)
+            conda_path="$HOME/miniconda3"
+            ;;
+    esac
     
-    # Now run the actual conda command
-    conda "$@"
+    if [[ -d "$conda_path" ]]; then
+        __conda_setup="$('$conda_path/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+        if [ $? -eq 0 ]; then
+            eval "$__conda_setup"
+        else
+            if [ -f "$conda_path/etc/profile.d/conda.sh" ]; then
+                . "$conda_path/etc/profile.d/conda.sh"
+            else
+                export PATH="$conda_path/bin:$PATH"
+            fi
+        fi
+        unset __conda_setup
+        conda "$@"
+    else
+        echo "conda not found in expected location: $conda_path"
+    fi
 }
 
 ####################
@@ -296,8 +366,20 @@ fi
 # Setup zoxide
 if type zoxide >/dev/null 2>&1; then eval "$(zoxide init zsh --cmd cd)"; fi
 
+# Detect and set up bat/batcat
+if type bat >/dev/null 2>&1; then
+    export BAT_CMD="bat"
+elif type batcat >/dev/null 2>&1; then
+    export BAT_CMD="batcat"
+    # Optional: create bat alias if you want to always use 'bat' command
+    alias bat="batcat"
+fi
+
 # Setup bat theme
 if type fast-theme > /dev/null 2>&1; then fast-theme XDG:catppuccin-mocha > /dev/null 2>&1; fi
+
+# Setup batman
+eval "$(batman --export-env)"
 
 # Setup ssh-agent
 if [ $(ps ax | grep ssh-agent | wc -l) -gt 0 ] ; then
@@ -309,24 +391,30 @@ else
     fi
 fi
 
-# Setup batman
-eval "$(batman --export-env)"
-
 ####################
 # ALIASES
 ####################
-# Config aliases
-alias zshconfig="nvim $ZDOTDIR/zshrc"
-alias zshsource="source $ZDOTDIR/zshrc"
-alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
 
-# QMK aliases
-alias qmk_og="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_firmware"
-alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_keychron"
+# Mac specific
+if [[ "$OS_TYPE" == "macos" ]]; then
+  # Config aliases
+  alias zshconfig="nvim $ZDOTDIR/zshrc"
+  alias zshsource="source $ZDOTDIR/zshrc"
+  alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
 
-# Nvim testing aliases
-alias nvim-telescope='NVIM_APPNAME=nvim-telescope nvim'
-alias nvim-fzf='NVIM_APPNAME=nvim-fzf nvim'
+  # QMK aliases
+  alias qmk_og="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_firmware"
+  alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_keychron"
+
+  # Nvim testing aliases
+  alias nvim-telescope='NVIM_APPNAME=nvim-telescope nvim'
+  alias nvim-fzf='NVIM_APPNAME=nvim-fzf nvim'
+
+  # Tool aliases
+  alias lazygit='lazygit --use-config-file="/Users/chris/.config/lazygit/config.yml,/Users/chris/.config/lazygit/catppuccin/themes-mergable/mocha/blue.yml"'
+  alias disable_gatekeeper="sudo spctl --master-disable"
+  if type taskwarrior-tui > /dev/null 2>&1; then alias tt="taskwarrior-tui"; fi
+fi
 
 # Tmux aliases
 alias tmux_main="tmux new-session -ADs main"
@@ -335,32 +423,29 @@ alias tmux_main="tmux new-session -ADs main"
 alias zcp='zmv -C'
 alias zln='zmv -L'
 
-# Tool aliases
-alias mc="mc --nosubshell"
-alias lazygit='lazygit --use-config-file="/Users/chris/.config/lazygit/config.yml,/Users/chris/.config/lazygit/catppuccin/themes-mergable/mocha/blue.yml"'
-alias disable_gatekeeper="sudo spctl --master-disable"
-if type taskwarrior-tui > /dev/null 2>&1; then alias tt="taskwarrior-tui"; fi
-
 # Bat configuration
-alias cat="bat --style=numbers --color=always"
-alias bathelp="bat --plain --language=help"
+if [[ -n "$BAT_CMD" ]]; then
+    alias cat="$BAT_CMD --style=numbers --color=always"
+    alias bathelp="$BAT_CMD --plain --language=help"
 
-TAIL_BIN=$(which tail)
-function tail() {
-    if [[ -n $1 && $1 == "-f" ]]; then
-        $TAIL_BIN $* | bat --paging=never -l log 
-    else
-        $TAIL_BIN $*
+    # Update your tail function
+    TAIL_BIN=$(which tail)
+    function tail() {
+        if [[ -n $1 && $1 == "-f" ]]; then
+            $TAIL_BIN $* | $BAT_CMD --paging=never -l log 
+        else
+            $TAIL_BIN $*
+        fi
+    }
+
+    function help() {
+        "$@" --help 2>&1 | $BAT_CMD --plain --language=help
+    }
+
+    # Update FZF with bat preview
+    if type fzf >/dev/null 2>&1; then 
+        alias fzf="fzf --preview '$BAT_CMD --style=numbers --color=always {}' --preview-window '~3'"
     fi
-}
-
-function help() {
-    "$@" --help 2>&1 | bathelp
-}
-
-# FZF with bat preview
-if type bat >/dev/null 2>&1; then 
-    alias fzf="fzf --preview 'bat --style=numbers --color=always {}' --preview-window '~3'"
 fi
 
 ####################
