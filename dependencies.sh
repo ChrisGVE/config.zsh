@@ -200,7 +200,10 @@ install_neovim() {
 main() {
 	# Source zshenv to get XDG paths
 	set -f # Disable glob expansion
-	source "${XDG_CONFIG_HOME:-$HOME/.config}/zsh/zshenv"
+	# Convert zsh conditional to bash
+	ZSHENV="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/zshenv"
+	export BASH_SOURCE_ZSHENV=$(cat "$ZSHENV" | grep -v '\[\[')
+	eval "$BASH_SOURCE_ZSHENV"
 	set +f # Re-enable glob expansion
 
 	# Create necessary directories
