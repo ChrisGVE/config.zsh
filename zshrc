@@ -133,7 +133,7 @@ _append_to_env() {
 _append_to_env "/usr/local/sbin" ":" "PATH"
 _append_to_env "$HOME/bin" ":" "PATH"
 _append_to_env "$HOME/Scripts" ":" "PATH"
-_append_to_env "$HOME/.local/bin" ":" "PATH"
+_append_to_env "$XDG_BIN_HOME" ":" "PATH"
 
 # Development tools
 _append_to_env "/usr/local/opt/openjdk/bin" ":" "PATH"
