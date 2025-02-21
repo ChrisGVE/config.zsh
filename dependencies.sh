@@ -2,10 +2,6 @@
 
 set -euo pipefail
 
-#!/usr/bin/env bash
-
-set -euo pipefail
-
 # Detect OS
 case "$(uname -s)" in
 Darwin*)
