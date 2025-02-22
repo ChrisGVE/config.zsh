@@ -21,7 +21,7 @@ VERSION_CMD="--version"
 
 install_deps() {
 	info "Installing lazygit build dependencies..."
-	package_install "golang-go"
+	ensure_go_toolchain
 }
 
 build_tool() {
