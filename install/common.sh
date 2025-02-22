@@ -301,6 +301,18 @@ install_tool_config() {
 	git clone "$config_repo" "$config_dir" || error "Failed to clone configuration for $tool_name"
 }
 
+# Get current version of installed binary
+get_installed_binary_version() {
+	local binary="$1"
+	local version_cmd="$2"
+
+	if command_exists "$binary"; then
+		"$binary" "$version_cmd" 2>&1 | head -n1 | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+'
+	else
+		echo "not_installed"
+	fi
+}
+
 # Main tool installation function
 install_or_update_tool() {
 	local tool_name="$1"
