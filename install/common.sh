@@ -91,6 +91,33 @@ package_remove() {
 	esac
 }
 
+# Remove packaged version of a tool
+remove_packaged_version() {
+	local package_name="$1"
+
+	# Check if package is installed through package manager
+	case "$(get_package_manager)" in
+	apt)
+		if dpkg -l "$package_name" >/dev/null 2>&1; then
+			info "Removing package manager version of $package_name"
+			package_remove "$package_name"
+		fi
+		;;
+	dnf)
+		if dnf list installed "$package_name" >/dev/null 2>&1; then
+			info "Removing package manager version of $package_name"
+			package_remove "$package_name"
+		fi
+		;;
+	pacman)
+		if pacman -Qi "$package_name" >/dev/null 2>&1; then
+			info "Removing package manager version of $package_name"
+			package_remove "$package_name"
+		fi
+		;;
+	esac
+}
+
 # Setup Python environment for a tool
 setup_python_env() {
 	local tool_name="$1"
@@ -112,12 +139,6 @@ setup_python_env() {
 }
 
 # Parse tool configuration
-# Args:
-#   $1: tool name
-# Returns:
-#   Sets global variables:
-#   - TOOL_VERSION_TYPE (stable|head|managed|none)
-#   - TOOL_CONFIG_NEEDED (0|1)
 parse_tool_config() {
 	local tool_name="$1"
 	local config_line="${!tool_name:-stable}" # Default to stable if not set
@@ -142,9 +163,6 @@ parse_tool_config() {
 }
 
 # Setup tool repository
-# Args:
-#   $1: tool name
-#   $2: repository URL
 setup_tool_repo() {
 	local tool_name="$1"
 	local repo_url="$2"
@@ -171,11 +189,7 @@ configure_build_flags() {
 	export MAKE_FLAGS="-j$((cpu_count - 1))"
 }
 
-# Get the target version (stable or head) for a tool
-# Args:
-#   $1: repository directory
-#   $2: version type (stable|head)
-#   $3: optional version prefix for stable versions (default: "v")
+# Get the target version for a tool
 get_target_version() {
 	local repo_dir="$1"
 	local version_type="$2"
@@ -194,37 +208,7 @@ get_target_version() {
 	fi
 }
 
-# Remove packaged version of a tool
-# Args:
-#   $1: package name
-remove_packaged_version() {
-	local package_name="$1"
-
-	# Check if package is installed through package manager
-	case "$(get_package_manager)" in
-	apt)
-		if dpkg -l "$package_name" >/dev/null 2>&1; then
-			info "Removing package manager version of $package_name"
-			package_remove "$package_name"
-		fi
-		;;
-	dnf)
-		if dnf list installed "$package_name" >/dev/null 2>&1; then
-			info "Removing package manager version of $package_name"
-			package_remove "$package_name"
-		fi
-		;;
-	pacman)
-		if pacman -Qi "$package_name" >/dev/null 2>&1; then
-			info "Removing package manager version of $package_name"
-			package_remove "$package_name"
-		fi
-		;;
-	esac
-}
-# Args:
-#   $1: tool name (as in config.toolname)
-#   $2: binary name (optional, defaults to tool name)
+# Install tool configuration if needed
 install_tool_config() {
 	local tool_name="$1"
 	local binary_name="${2:-$tool_name}"
