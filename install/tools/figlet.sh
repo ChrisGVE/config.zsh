@@ -36,9 +36,9 @@ build_tool() {
 	cd "$build_dir" || error "Failed to enter build directory: $build_dir"
 
 	if [ "$version_type" = "stable" ]; then
-		latest_version=$(get_target_version "$build_dir" "stable")
-		info "Checking out stable version: $latest_version"
-		git checkout "$latest_version" || error "Failed to checkout version $latest_version"
+		# Figlet doesn't use version tags, use latest commit on master
+		info "Using latest stable commit"
+		git checkout master || error "Failed to checkout master branch"
 	else
 		info "Using development version (HEAD)"
 		git checkout master || error "Failed to checkout master branch"
@@ -46,10 +46,10 @@ build_tool() {
 
 	info "Building figlet..."
 	configure_build_flags
-	make $MAKE_FLAGS || error "Failed to build"
+	make $MAKE_FLAGS all || error "Failed to build"
 
 	info "Installing figlet..."
-	sudo make install || error "Failed to install"
+	sudo make install prefix=/usr/local || error "Failed to install"
 }
 
 # Install dependencies first
