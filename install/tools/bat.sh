@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+# Set up environment
+set -f # Disable glob expansion
+ZSHENV="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/zshenv"
+export BASH_SOURCE_ZSHENV=$(grep -v '\[\[' "$ZSHENV")
+eval "$BASH_SOURCE_ZSHENV"
+set +f # Re-enable glob expansion
+
+# Set installation directory
+INSTALL_DATA_DIR="${XDG_DATA_HOME}/zsh/install"
+
 # Source common functions
 source "${INSTALL_DATA_DIR}/common.sh"
 
@@ -11,8 +21,11 @@ VERSION_CMD="--version"
 
 install_deps() {
 	info "Installing bat build dependencies..."
-	sudo apt-get update || error "Failed to update apt"
-	sudo apt-get install -y cargo rustc cmake pkg-config libssl-dev || error "Failed to install dependencies"
+	package_install "cargo"
+	package_install "rustc"
+	package_install "cmake"
+	package_install "pkg-config"
+	package_install "libssl-dev"
 }
 
 build_tool() {

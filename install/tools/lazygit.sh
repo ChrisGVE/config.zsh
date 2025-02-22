@@ -14,13 +14,13 @@ INSTALL_DATA_DIR="${XDG_DATA_HOME}/zsh/install"
 source "${INSTALL_DATA_DIR}/common.sh"
 
 # Tool-specific configuration
-TOOL_NAME="fzf"
-REPO_URL="https://github.com/junegunn/fzf"
-BINARY="fzf"
+TOOL_NAME="lazygit"
+REPO_URL="https://github.com/jesseduffield/lazygit"
+BINARY="lazygit"
 VERSION_CMD="--version"
 
 install_deps() {
-	info "Installing FZF build dependencies..."
+	info "Installing lazygit build dependencies..."
 	package_install "golang-go"
 }
 
@@ -44,16 +44,11 @@ build_tool() {
 		git checkout master || error "Failed to checkout master branch"
 	fi
 
-	info "Building FZF..."
-	make clean
-	make || error "Failed to build"
+	info "Building lazygit..."
+	go build || error "Failed to build"
 
-	info "Installing FZF..."
-	sudo install -m755 bin/fzf /usr/local/bin/ || error "Failed to install binary"
-
-	# Install shell integration scripts
-	mkdir -p "${XDG_DATA_HOME}/fzf"
-	cp shell/*.zsh "${XDG_DATA_HOME}/fzf/" || warn "Failed to install shell integration scripts"
+	info "Installing lazygit..."
+	sudo install -m755 lazygit /usr/local/bin/ || error "Failed to install"
 }
 
 # Install dependencies first

@@ -14,14 +14,19 @@ INSTALL_DATA_DIR="${XDG_DATA_HOME}/zsh/install"
 source "${INSTALL_DATA_DIR}/common.sh"
 
 # Tool-specific configuration
-TOOL_NAME="fzf"
-REPO_URL="https://github.com/junegunn/fzf"
-BINARY="fzf"
+TOOL_NAME="yazi"
+REPO_URL="https://github.com/sxyazi/yazi"
+BINARY="yazi"
 VERSION_CMD="--version"
 
 install_deps() {
-	info "Installing FZF build dependencies..."
-	package_install "golang-go"
+	info "Installing yazi build dependencies..."
+	package_install "cargo"
+	package_install "rustc"
+	package_install "pkg-config"
+	package_install "libglib2.0-dev"
+	package_install "ffmpegthumbnailer" # For image previews
+	package_install "unar"              # For archive previews
 }
 
 build_tool() {
@@ -44,16 +49,16 @@ build_tool() {
 		git checkout master || error "Failed to checkout master branch"
 	fi
 
-	info "Building FZF..."
-	make clean
-	make || error "Failed to build"
+	info "Building yazi..."
+	# Configure build flags for Rust
+	configure_build_flags
+	export CARGO_BUILD_JOBS="${MAKE_FLAGS#-j}"
 
-	info "Installing FZF..."
-	sudo install -m755 bin/fzf /usr/local/bin/ || error "Failed to install binary"
+	# Build with cargo
+	cargo build --release || error "Failed to build"
 
-	# Install shell integration scripts
-	mkdir -p "${XDG_DATA_HOME}/fzf"
-	cp shell/*.zsh "${XDG_DATA_HOME}/fzf/" || warn "Failed to install shell integration scripts"
+	info "Installing yazi..."
+	sudo install -m755 target/release/yazi /usr/local/bin/ || error "Failed to install"
 }
 
 # Install dependencies first

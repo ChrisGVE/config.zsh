@@ -14,14 +14,19 @@ INSTALL_DATA_DIR="${XDG_DATA_HOME}/zsh/install"
 source "${INSTALL_DATA_DIR}/common.sh"
 
 # Tool-specific configuration
-TOOL_NAME="fzf"
-REPO_URL="https://github.com/junegunn/fzf"
-BINARY="fzf"
-VERSION_CMD="--version"
+TOOL_NAME="tmux"
+REPO_URL="https://github.com/tmux/tmux"
+BINARY="tmux"
+VERSION_CMD="-V"
 
 install_deps() {
-	info "Installing FZF build dependencies..."
-	package_install "golang-go"
+	info "Installing tmux build dependencies..."
+	package_install "libevent-dev"
+	package_install "ncurses-dev"
+	package_install "automake"
+	package_install "pkg-config"
+	package_install "build-essential"
+	package_install "bison"
 }
 
 build_tool() {
@@ -44,16 +49,17 @@ build_tool() {
 		git checkout master || error "Failed to checkout master branch"
 	fi
 
-	info "Building FZF..."
-	make clean
-	make || error "Failed to build"
+	info "Building tmux..."
+	sh autogen.sh || error "Failed to generate build system"
 
-	info "Installing FZF..."
-	sudo install -m755 bin/fzf /usr/local/bin/ || error "Failed to install binary"
+	# Configure build flags
+	configure_build_flags
 
-	# Install shell integration scripts
-	mkdir -p "${XDG_DATA_HOME}/fzf"
-	cp shell/*.zsh "${XDG_DATA_HOME}/fzf/" || warn "Failed to install shell integration scripts"
+	./configure || error "Failed to configure"
+	make $MAKE_FLAGS || error "Failed to build"
+
+	info "Installing tmux..."
+	sudo make install || error "Failed to install"
 }
 
 # Install dependencies first

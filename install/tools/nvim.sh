@@ -1,25 +1,43 @@
 #!/usr/bin/env bash
 
-# Source common functions which will setup the environment
-source "${XDG_DATA_HOME:-$HOME/.local/share}/zsh/install/common.sh"
+# Set up environment
+set -f # Disable glob expansion
+ZSHENV="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/zshenv"
+export BASH_SOURCE_ZSHENV=$(grep -v '\[\[' "$ZSHENV")
+eval "$BASH_SOURCE_ZSHENV"
+set +f # Re-enable glob expansion
+
+# Set installation directory
+INSTALL_DATA_DIR="${XDG_DATA_HOME}/zsh/install"
+
+# Source common functions
+source "${INSTALL_DATA_DIR}/common.sh"
 
 # Tool-specific configuration
-TOOL_NAME="neovim"
+TOOL_NAME="nvim"
 REPO_URL="https://github.com/neovim/neovim"
 BINARY="nvim"
 VERSION_CMD="--version"
 
 install_deps() {
 	info "Installing Neovim build dependencies..."
-	sudo apt-get update || error "Failed to update apt"
-	sudo apt-get install -y ninja-build gettext cmake unzip curl || error "Failed to install dependencies"
+	package_install "ninja-build"
+	package_install "gettext"
+	package_install "cmake"
+	package_install "unzip"
+	package_install "curl"
 }
 
 build_tool() {
 	local build_dir="$1"
 	local version_type="$2"
 
-	cd "$build_dir" || error "Failed to enter build directory"
+	if [ ! -d "$build_dir" ]; then
+		error "Build directory does not exist: $build_dir"
+		return 1
+	fi
+
+	cd "$build_dir" || error "Failed to enter build directory: $build_dir"
 
 	if [ "$version_type" = "stable" ]; then
 		latest_version=$(get_target_version "$build_dir" "stable")
@@ -30,7 +48,7 @@ build_tool() {
 		git checkout master || error "Failed to checkout master branch"
 	fi
 
-	# Configure build flags
+	info "Building Neovim..."
 	configure_build_flags
 
 	# Set CMAKE flags for Raspberry Pi
@@ -39,7 +57,6 @@ build_tool() {
                  -DENABLE_LTO=ON \
                  -DCMAKE_C_FLAGS=-march=native"
 
-	info "Building Neovim..."
 	make clean
 	make $MAKE_FLAGS CMAKE_FLAGS="$CMAKE_FLAGS" || error "Failed to build"
 
