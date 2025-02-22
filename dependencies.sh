@@ -1,118 +1,161 @@
 #!/usr/bin/env bash
+
+###############################################################################
+# Main Dependencies Installation Script
+#
+# Purpose:
+# This script manages the installation and updating of development tools and
+# their dependencies in a multi-user environment. It serves as the main entry
+# point for:
+# 1. System package manager updates
+# 2. Development toolchain installation and updates
+# 3. Individual tool installations
+#
+# The script ensures:
+# - Consistent installation across different systems
+# - Proper toolchain management
+# - Individual tool installations with version control
+###############################################################################
+
 set -euo pipefail
 
-# Define paths before anything else
-TOOLS_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/tools"
-INSTALL_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/zsh/install"
-SCRIPT_PATH="${XDG_BIN_HOME:-$HOME/.local/bin}/dependencies"
-
 # Print status messages
-info() { echo "[INFO] $1"; }
-warn() { echo "[WARN] $1"; }
+info() { echo "[INFO] $1" >&2; }
+warn() { echo "[WARN] $1" >&2; }
 error() {
 	echo "[ERROR] $1"
 	exit 1
 }
 
-# Check if a command exists
-command_exists() {
-	command -v "$1" >/dev/null 2>&1
+###############################################################################
+# Environment Detection and Setup
+###############################################################################
+
+# Detect and store the system's package manager
+detect_package_manager() {
+	if [ -f /etc/os-release ]; then
+		. /etc/os-release
+		case "$ID" in
+		debian | ubuntu | raspbian)
+			export PACKAGE_MANAGER="apt"
+			;;
+		fedora | rhel | centos)
+			export PACKAGE_MANAGER="dnf"
+			;;
+		arch | manjaro)
+			export PACKAGE_MANAGER="pacman"
+			;;
+		*)
+			# Fallback to checking available package managers
+			if command -v apt >/dev/null 2>&1; then
+				export PACKAGE_MANAGER="apt"
+			elif command -v dnf >/dev/null 2>&1; then
+				export PACKAGE_MANAGER="dnf"
+			elif command -v pacman >/dev/null 2>&1; then
+				export PACKAGE_MANAGER="pacman"
+			else
+				error "Unsupported distribution: $ID"
+			fi
+			;;
+		esac
+	else
+		error "Cannot determine distribution type"
+	fi
 }
 
-# Detect OS
-detect_os() {
-	case "$(uname -s)" in
-	Darwin*)
-		export OS_TYPE="macos"
+# Update system package manager if we have non-interactive sudo access
+update_package_manager() {
+	info "Checking package manager update access..."
+
+	# Test for non-interactive sudo access
+	if ! sudo -n true 2>/dev/null; then
+		warn "No non-interactive sudo access. Skipping package manager update."
+		return 0
+	fi
+
+	info "Updating package manager..."
+	case "$PACKAGE_MANAGER" in
+	apt)
+		sudo -n apt update
 		;;
-	Linux*)
-		export OS_TYPE="linux"
-		if [[ -f /sys/firmware/devicetree/base/model ]]; then
-			if grep -q "Raspberry Pi" /sys/firmware/devicetree/base/model; then
-				export OS_TYPE="raspberrypi"
-			fi
-		fi
+	dnf)
+		sudo -n dnf check-update || true # dnf returns 100 if updates available
 		;;
-	*)
-		export OS_TYPE="unknown"
+	pacman)
+		sudo -n pacman -Sy
 		;;
 	esac
 }
 
-# Install the dependencies script and its supporting files
-install_dependencies_script() {
-	info "Installing dependencies script..."
+###############################################################################
+# Installation Directory Management
+###############################################################################
 
-	# Create necessary directories
-	mkdir -p "$(dirname "$SCRIPT_PATH")"
-	mkdir -p "$INSTALL_DATA_DIR/tools"
-	mkdir -p "$TOOLS_CACHE_DIR"
-
-	# Install the main script
-	cp "$CURRENT_SCRIPT" "$SCRIPT_PATH"
-	chmod +x "$SCRIPT_PATH"
-
-	# Copy supporting files
-	REPO_ROOT="$(dirname "$CURRENT_SCRIPT")"
-	if [ -d "${REPO_ROOT}/install" ]; then
-		cp -r "${REPO_ROOT}/install/common.sh" "$INSTALL_DATA_DIR/"
-		cp -r "${REPO_ROOT}/install/tools/"* "$INSTALL_DATA_DIR/tools/"
-		chmod +x "$INSTALL_DATA_DIR/tools/"*.sh
+# Get the appropriate user-level installation directory
+# Prefers /opt/local/bin if it exists, falls back to /usr/local/bin
+# Creates the chosen directory structure if neither exists
+get_install_dir() {
+	# First check existing bin directories
+	if [ -d "/opt/local/bin" ]; then
+		echo "/opt/local"
+	elif [ -d "/usr/local/bin" ]; then
+		echo "/usr/local"
 	else
-		error "Could not find install directory in repository"
+		# If neither exists, prefer /opt/local and ensure bin exists
+		local base_dir="/opt/local"
+		if sudo -n mkdir -p "${base_dir}/bin" 2>/dev/null; then
+			sudo -n chmod 775 "${base_dir}/bin"
+			echo "$base_dir"
+		else
+			# Fallback to /usr/local if /opt/local creation fails
+			base_dir="/usr/local"
+			if sudo -n mkdir -p "${base_dir}/bin" 2>/dev/null; then
+				sudo -n chmod 775 "${base_dir}/bin"
+				echo "$base_dir"
+			else
+				error "Could not create either /opt/local/bin or /usr/local/bin"
+			fi
+		fi
 	fi
-
-	info "Dependencies script installed. Run 'dependencies' to manage tools."
-	exit 0
 }
 
-# Source zshenv safely in bash
-source_zshenv() {
-	set -f # Disable glob expansion
-	local ZSHENV="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/zshenv"
-	# Filter out zsh-specific syntax
-	export BASH_SOURCE_ZSHENV=$(grep -v '\[\[' "$ZSHENV")
-	eval "$BASH_SOURCE_ZSHENV"
-	set +f # Re-enable glob expansion
-}
+###############################################################################
+# Main Installation Process
+###############################################################################
 
-# Main function
 main() {
-	# First make sure we have the OS type
-	detect_os
+	local SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+	local INSTALL_DIR="$(get_install_dir)"
 
-	# Source zshenv to get XDG paths
-	source_zshenv
+	# 1. Detect package manager
+	detect_package_manager
 
-	INSTALL_DATA_DIR="${XDG_DATA_HOME}/zsh/install"
+	# 2. Update system package manager if possible
+	update_package_manager
 
-	# During installation
-	mkdir -p "$INSTALL_DATA_DIR"
-	cp "install/tools.conf" "$INSTALL_DATA_DIR/"
-	cp -r "install/common.sh" "$INSTALL_DATA_DIR/"
-	cp -r "install/tools/"* "$INSTALL_DATA_DIR/tools/"
+	# 3. Ensure development toolchains are installed and up to date
+	info "Setting up development toolchains..."
+	bash "${SCRIPT_DIR}/toolchains.sh" || error "Toolchain setup failed"
 
-	# Check if we're running from the installed location
-	CURRENT_SCRIPT="$(readlink -f "$0")"
-	if [ "$CURRENT_SCRIPT" != "$SCRIPT_PATH" ]; then
-		install_dependencies_script
+	# 4. Source common functions for tool installation
+	source "${SCRIPT_DIR}/common.sh" || error "Failed to source common functions"
+
+	# 5. Process each tool installation script
+	local TOOLS_DIR="${SCRIPT_DIR}/tools"
+	if [ ! -d "$TOOLS_DIR" ]; then
+		error "Tools directory not found: $TOOLS_DIR"
 	fi
 
-	# If we're here, we're running from the installed location
 	info "Running dependencies management..."
-
-	# Source common functions
-	source "${INSTALL_DATA_DIR}/common.sh"
-
-	# Run each tool installer
-	for tool in "${INSTALL_DATA_DIR}/tools/"*.sh; do
+	for tool in "${TOOLS_DIR}"/*.sh; do
 		if [ -f "$tool" ]; then
 			info "Processing: $(basename "$tool")"
-			bash "$tool"
+			bash "$tool" || error "Failed to process $(basename "$tool")"
 		fi
 	done
 
-	info "All tools processed."
+	info "All tools processed successfully"
 }
 
+# Execute main function
 main "$@"
