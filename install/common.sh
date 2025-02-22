@@ -170,7 +170,7 @@ ensure_go_toolchain() {
 	if ! command_exists go || [[ "$(go version | awk '{print $3}')" < "go1.20" ]]; then
 		info "Installing/Updating Go..."
 		# Download latest Go for ARM64
-		local GO_VERSION="1.22" # We can make this dynamic if needed
+		local GO_VERSION="1.24.0" # We can make this dynamic if needed
 		local ARCH="arm64"
 		local OS="linux"
 
