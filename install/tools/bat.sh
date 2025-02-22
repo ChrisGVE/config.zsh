@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Source common functions which will setup the environment
-source "${XDG_DATA_HOME:-$HOME/.local/share}/zsh/install/common.sh"
+# Source common functions
+source "${INSTALL_DATA_DIR}/common.sh"
 
 # Tool-specific configuration
 TOOL_NAME="bat"
@@ -19,7 +19,12 @@ build_tool() {
 	local build_dir="$1"
 	local version_type="$2"
 
-	cd "$build_dir" || error "Failed to enter build directory"
+	if [ ! -d "$build_dir" ]; then
+		error "Build directory does not exist: $build_dir"
+		return 1
+	fi
+
+	cd "$build_dir" || error "Failed to enter build directory: $build_dir"
 
 	if [ "$version_type" = "stable" ]; then
 		latest_version=$(get_target_version "$build_dir" "stable")
