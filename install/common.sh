@@ -84,7 +84,9 @@ setup_tool_repo() {
 	local repo_url="$2"
 	local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/tools/$tool_name"
 
-	if [ ! -d "$cache_dir" ] || [ -z "$(ls -A "$cache_dir")" ]; then
+	mkdir -p "$(dirname "$cache_dir")"
+
+	if [ ! -d "$cache_dir" ] || [ -z "$(ls -A "$cache_dir" 2>/dev/null)" ]; then
 		info "Cloning $tool_name repository..."
 		rm -rf "$cache_dir"
 		git clone "$repo_url" "$cache_dir" || error "Failed to clone $tool_name repository"
@@ -93,15 +95,14 @@ setup_tool_repo() {
 		(cd "$cache_dir" && git fetch) || error "Failed to update $tool_name repository"
 	fi
 
-	echo "$cache_dir"
+	printf "%s" "$cache_dir"
 }
 
 # Configure build flags
-# Returns number of CPU cores to use via MAKE_FLAGS
 configure_build_flags() {
 	local cpu_count=$(nproc)
 	# On Raspberry Pi, use one less than available cores to prevent lockup
-	MAKE_FLAGS="-j$((cpu_count - 1))"
+	export MAKE_FLAGS="-j$((cpu_count - 1))"
 }
 
 # Verify tool installation
