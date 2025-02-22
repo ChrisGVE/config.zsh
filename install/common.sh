@@ -120,29 +120,9 @@ remove_packaged_version() {
 
 # Ensure Rust toolchain is installed and up to date
 ensure_rust_toolchain() {
-	# First remove any system-managed Rust if present
-	case "$(get_package_manager)" in
-	apt)
-		if dpkg -l | grep -E '^ii.*(rust|cargo)' >/dev/null 2>&1; then
-			info "Removing system Rust toolchain"
-			dpkg -l | grep -E '^ii.*(rust|cargo)' | awk '{print $2}' | xargs sudo apt remove -y
-			sudo apt autoremove -y
-		fi
-		;;
-	dnf)
-		if dnf list installed rust cargo >/dev/null 2>&1; then
-			info "Removing system Rust toolchain"
-			sudo dnf remove -y rust cargo
-			sudo dnf autoremove -y
-		fi
-		;;
-	pacman)
-		if pacman -Qi rust >/dev/null 2>&1; then
-			info "Removing system Rust toolchain"
-			sudo pacman -Rs --noconfirm rust cargo
-		fi
-		;;
-	esac
+	# Remove system-managed Rust if present
+	remove_packaged_version "rust"
+	remove_packaged_version "cargo"
 
 	# Install and configure rustup if not present
 	if ! command_exists rustup; then
@@ -157,6 +137,33 @@ ensure_rust_toolchain() {
 	# Ensure cargo is in PATH
 	if ! command_exists cargo; then
 		source "$HOME/.cargo/env"
+	fi
+}
+
+# Ensure Go toolchain is installed and up to date
+ensure_go_toolchain() {
+	# Remove system Go if present
+	remove_packaged_version "golang-go" # Debian-based
+	remove_packaged_version "golang"    # RPM-based
+	remove_packaged_version "go"        # Arch-based
+
+	# Install go using official method if not present or update if present
+	if ! command_exists go || [[ "$(go version | awk '{print $3}')" < "go1.20" ]]; then
+		info "Installing/Updating Go..."
+		# Download latest Go for ARM64
+		local GO_VERSION="1.21.5" # We can make this dynamic if needed
+		local ARCH="arm64"
+		local OS="linux"
+
+		wget "https://go.dev/dl/go${GO_VERSION}.${OS}-${ARCH}.tar.gz" -O /tmp/go.tar.gz
+		sudo rm -rf /usr/local/go
+		sudo tar -C /usr/local -xzf /tmp/go.tar.gz
+		rm /tmp/go.tar.gz
+
+		# Add to PATH if not already there
+		if [[ ":$PATH:" != *":/usr/local/go/bin:"* ]]; then
+			export PATH=$PATH:/usr/local/go/bin
+		fi
 	fi
 }
 

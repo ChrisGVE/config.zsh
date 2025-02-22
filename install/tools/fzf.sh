@@ -20,8 +20,8 @@ BINARY="fzf"
 VERSION_CMD="--version"
 
 install_deps() {
-	info "Installing FZF build dependencies..."
-	package_install "golang-go"
+	info "Installing fzf build dependencies..."
+	ensure_go_toolchain
 }
 
 build_tool() {
@@ -44,11 +44,11 @@ build_tool() {
 		git checkout master || error "Failed to checkout master branch"
 	fi
 
-	info "Building FZF..."
+	info "Building fzf..."
 	make clean
 	make || error "Failed to build"
 
-	info "Installing FZF..."
+	info "Installing fzf..."
 	sudo install -m755 bin/fzf /usr/local/bin/ || error "Failed to install binary"
 
 	# Install shell integration scripts
