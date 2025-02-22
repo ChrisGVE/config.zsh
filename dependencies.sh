@@ -135,7 +135,8 @@ main() {
 
 	# 3. Ensure development toolchains are installed and up to date
 	info "Setting up development toolchains..."
-	bash "${SCRIPT_DIR}/toolchains.sh" || error "Toolchain setup failed"
+	local INSTALL_DIR="$(get_install_dir)"
+	bash "${SCRIPT_DIR}/toolchains.sh" "$INSTALL_DIR" || error "Toolchain setup failed"
 
 	# 4. Source common functions for tool installation
 	source "${SCRIPT_DIR}/common.sh" || error "Failed to source common functions"
