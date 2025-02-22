@@ -84,6 +84,14 @@ main() {
 	# Source zshenv to get XDG paths
 	source_zshenv
 
+	INSTALL_DATA_DIR="${XDG_DATA_HOME}/zsh/install"
+
+	# During installation
+	mkdir -p "$INSTALL_DATA_DIR"
+	cp "install/tools.conf" "$INSTALL_DATA_DIR/"
+	cp -r "install/common.sh" "$INSTALL_DATA_DIR/"
+	cp -r "install/tools/"* "$INSTALL_DATA_DIR/tools/"
+
 	# Check if we're running from the installed location
 	CURRENT_SCRIPT="$(readlink -f "$0")"
 	if [ "$CURRENT_SCRIPT" != "$SCRIPT_PATH" ]; then
