@@ -364,7 +364,10 @@ if type fzf >/dev/null 2>&1; then
 fi
 
 # Setup zoxide
-if type zoxide >/dev/null 2>&1; then eval "$(zoxide init zsh --cmd cd)"; fi
+if type zoxide >/dev/null 2>&1; then 
+    export _ZO_RESOLVE_SYMLINKS=0
+    eval "$(zoxide init zsh --cmd cd)"
+fi
 
 # Detect and set up bat/batcat
 if type bat >/dev/null 2>&1; then
