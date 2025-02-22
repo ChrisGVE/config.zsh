@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Source common functions
-source "${INSTALL_DATA_DIR}/common.sh"
+# Source common functions which will setup the environment
+source "${XDG_DATA_HOME:-$HOME/.local/share}/zsh/install/common.sh"
 
 # Tool-specific configuration
 TOOL_NAME="zoxide"

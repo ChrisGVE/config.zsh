@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 
-# Print status messages
+# Setup environment
+setup_env() {
+	set -f # Disable glob expansion
+	local ZSHENV="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/zshenv"
+	export BASH_SOURCE_ZSHENV=$(grep -v '\[\[' "$ZSHENV")
+	eval "$BASH_SOURCE_ZSHENV"
+	set +f # Re-enable glob expansion
+
+	# Set installation directories
+	export INSTALL_DATA_DIR="${XDG_DATA_HOME}/zsh/install"
+}
+
+# Initialize environment
+setup_env
 info() { echo "[INFO] $1"; }
 warn() { echo "[WARN] $1"; }
 error() {
