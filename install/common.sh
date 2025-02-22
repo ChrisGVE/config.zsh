@@ -94,6 +94,7 @@ package_remove() {
 # Remove packaged version of a tool
 remove_packaged_version() {
 	local package_name="$1"
+	local remove_rust="${2:-false}" # Optional parameter to remove rust toolchain
 
 	# Check if package is installed through package manager
 	case "$(get_package_manager)" in
@@ -101,18 +102,36 @@ remove_packaged_version() {
 		if dpkg -l "$package_name" >/dev/null 2>&1; then
 			info "Removing package manager version of $package_name"
 			package_remove "$package_name"
+
+			# If this is a Rust tool, remove system rust/cargo
+			if [ "$remove_rust" = "true" ]; then
+				info "Removing system Rust toolchain"
+				dpkg -l | grep -E '^ii.*(rust|cargo)' | awk '{print $2}' | xargs sudo apt remove -y
+				sudo apt autoremove -y
+			fi
 		fi
 		;;
 	dnf)
 		if dnf list installed "$package_name" >/dev/null 2>&1; then
 			info "Removing package manager version of $package_name"
 			package_remove "$package_name"
+
+			if [ "$remove_rust" = "true" ]; then
+				info "Removing system Rust toolchain"
+				sudo dnf remove -y rust cargo
+				sudo dnf autoremove -y
+			fi
 		fi
 		;;
 	pacman)
 		if pacman -Qi "$package_name" >/dev/null 2>&1; then
 			info "Removing package manager version of $package_name"
 			package_remove "$package_name"
+
+			if [ "$remove_rust" = "true" ]; then
+				info "Removing system Rust toolchain"
+				sudo pacman -Rs --noconfirm rust cargo
+			fi
 		fi
 		;;
 	esac
@@ -303,10 +322,21 @@ install_or_update_tool() {
 		package_install "$tool_name"
 		;;
 	stable | head)
+		if [ "$TOOL_VERSION_TYPE" = "stable" ]; then
+			local target_version=$(get_target_version "$repo_dir" "stable")
+			local current_version=$(get_installed_binary_version "$binary" "$version_cmd")
+
+			if [ "$current_version" = "$target_version" ]; then
+				info "$tool_name is already at latest version $target_version"
+				return 0
+			fi
+		fi
+
 		# Remove packaged version if exists
 		if command_exists "$binary"; then
 			remove_packaged_version "$binary"
 		fi
+
 		# Build from source
 		"$build_func" "$repo_dir" "$TOOL_VERSION_TYPE"
 		;;
