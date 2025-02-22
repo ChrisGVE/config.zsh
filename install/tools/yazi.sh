@@ -21,12 +21,11 @@ VERSION_CMD="--version"
 
 install_deps() {
 	info "Installing yazi build dependencies..."
-	package_install "cargo"
-	package_install "rustc"
 	package_install "pkg-config"
 	package_install "libglib2.0-dev"
 	package_install "ffmpegthumbnailer" # For image previews
 	package_install "unar"              # For archive previews
+	ensure_rust_toolchain
 }
 
 build_tool() {

@@ -21,11 +21,10 @@ VERSION_CMD="--version"
 
 install_deps() {
 	info "Installing bat build dependencies..."
-	package_install "cargo"
-	package_install "rustc"
 	package_install "cmake"
 	package_install "pkg-config"
 	package_install "libssl-dev"
+	ensure_rust_toolchain
 }
 
 build_tool() {

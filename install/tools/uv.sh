@@ -21,9 +21,8 @@ VERSION_CMD="--version"
 
 install_deps() {
 	info "Installing uv build dependencies..."
-	package_install "cargo"
-	package_install "rustc"
 	package_install "pkg-config"
+	ensure_rust_toolchain
 }
 
 build_tool() {

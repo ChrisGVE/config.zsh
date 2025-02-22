@@ -11,8 +11,7 @@ VERSION_CMD="--version"
 
 install_deps() {
 	info "Installing zoxide build dependencies..."
-	sudo apt-get update || error "Failed to update apt"
-	sudo apt-get install -y cargo rustc || error "Failed to install dependencies"
+	ensure_rust_toolchain
 }
 
 build_tool() {

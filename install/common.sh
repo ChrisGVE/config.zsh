@@ -118,6 +118,48 @@ remove_packaged_version() {
 	esac
 }
 
+# Ensure Rust toolchain is installed and up to date
+ensure_rust_toolchain() {
+	# First remove any system-managed Rust if present
+	case "$(get_package_manager)" in
+	apt)
+		if dpkg -l | grep -E '^ii.*(rust|cargo)' >/dev/null 2>&1; then
+			info "Removing system Rust toolchain"
+			dpkg -l | grep -E '^ii.*(rust|cargo)' | awk '{print $2}' | xargs sudo apt remove -y
+			sudo apt autoremove -y
+		fi
+		;;
+	dnf)
+		if dnf list installed rust cargo >/dev/null 2>&1; then
+			info "Removing system Rust toolchain"
+			sudo dnf remove -y rust cargo
+			sudo dnf autoremove -y
+		fi
+		;;
+	pacman)
+		if pacman -Qi rust >/dev/null 2>&1; then
+			info "Removing system Rust toolchain"
+			sudo pacman -Rs --noconfirm rust cargo
+		fi
+		;;
+	esac
+
+	# Install and configure rustup if not present
+	if ! command_exists rustup; then
+		info "Installing rustup..."
+		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+		source "$HOME/.cargo/env"
+	fi
+
+	info "Updating Rust toolchain..."
+	rustup update stable
+
+	# Ensure cargo is in PATH
+	if ! command_exists cargo; then
+		source "$HOME/.cargo/env"
+	fi
+}
+
 # Setup Python environment for a tool
 setup_python_env() {
 	local tool_name="$1"
