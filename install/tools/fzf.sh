@@ -49,7 +49,7 @@ build_tool() {
 	make || error "Failed to build"
 
 	info "Installing fzf..."
-	sudo install -m755 bin/fzf /usr/local/bin/ || error "Failed to install binary"
+	sudo install -m755 target/fzf-linux_arm8 /usr/local/bin/fzf || error "Failed to install binary"
 
 	# Install shell integration scripts
 	mkdir -p "${XDG_DATA_HOME}/fzf"
