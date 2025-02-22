@@ -363,10 +363,12 @@ if type fzf >/dev/null 2>&1; then
     fi
 fi
 
-# Setup zoxide
+# Setup zoxide with custom cd handling
 if type zoxide >/dev/null 2>&1; then 
     export _ZO_RESOLVE_SYMLINKS=0
-    eval "$(zoxide init zsh --cmd cd)"
+    export _ZO_MAXAGE=0
+    export _ZO_CMD_PREFIX="_z"
+    eval "$(zoxide init zsh --cmd cd --hook pwd)"
 fi
 
 # Detect and set up bat/batcat
