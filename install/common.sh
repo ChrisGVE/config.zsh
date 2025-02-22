@@ -194,7 +194,34 @@ get_target_version() {
 	fi
 }
 
-# Install tool configuration if needed
+# Remove packaged version of a tool
+# Args:
+#   $1: package name
+remove_packaged_version() {
+	local package_name="$1"
+
+	# Check if package is installed through package manager
+	case "$(get_package_manager)" in
+	apt)
+		if dpkg -l "$package_name" >/dev/null 2>&1; then
+			info "Removing package manager version of $package_name"
+			package_remove "$package_name"
+		fi
+		;;
+	dnf)
+		if dnf list installed "$package_name" >/dev/null 2>&1; then
+			info "Removing package manager version of $package_name"
+			package_remove "$package_name"
+		fi
+		;;
+	pacman)
+		if pacman -Qi "$package_name" >/dev/null 2>&1; then
+			info "Removing package manager version of $package_name"
+			package_remove "$package_name"
+		fi
+		;;
+	esac
+}
 # Args:
 #   $1: tool name (as in config.toolname)
 #   $2: binary name (optional, defaults to tool name)
