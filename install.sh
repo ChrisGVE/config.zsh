@@ -74,6 +74,14 @@ install_scripts() {
 
 	info "Installing configuration scripts..."
 
+	# Check if we're already in the target directory
+	if [[ "$script_dir" == "$config_dir" ]]; then
+		error "Cannot install from target directory. Please run install.sh from the source directory."
+	fi
+
+	# Create install directory if it doesn't exist
+	mkdir -p "$config_dir/install/tools"
+
 	# Copy main management script
 	cp "$script_dir/dependencies.sh" "$config_dir/" || error "Failed to copy dependencies.sh"
 
