@@ -182,7 +182,7 @@ conda() {
             conda_path="/usr/local/Caskroom/miniconda/base"
             ;;
         raspberrypi|linux)
-            conda_path="$HOME/miniconda3"
+            conda_path="/opt/local/conda"
             ;;
     esac
     
