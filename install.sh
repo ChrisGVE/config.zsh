@@ -1,79 +1,112 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# Installation Bootstrap Script
+# Installation Script
 #
 # Purpose:
-# Provides the main entry point for system setup, including:
-# - Initial system checks
-# - Directory structure setup
-# - Sudo access verification
-# - Dependencies installation
+# This script handles the initial installation of the zsh configuration system.
+# It sets up the directory structure and copies all scripts to their proper
+# locations. This is a one-time setup script that should be run before using
+# the dependencies management system.
+#
+# Directory Structure Created:
+# /opt/local/bin or /usr/local/bin - System-wide tool installation
+# ~/.config/zsh/                    - Main configuration directory
+# ├── install/                      - Installation support scripts
+# │   ├── common.sh                 - Common functions
+# │   ├── toolchains.sh            - Toolchain management
+# │   └── tools/                    - Individual tool installers
+# └── dependencies.sh              - Main management script
+#
+# After installation, users should use the 'dependencies' command to
+# manage tool installations and updates.
 ###############################################################################
 
 set -euo pipefail
 
-# Print status messages
+# Status message functions
+# Print informational messages to stderr to keep stdout clean
 info() { echo "[INFO] $1" >&2; }
-warn() { echo "[WARN] $1" >&2; }
 error() {
 	echo "[ERROR] $1"
 	exit 1
 }
 
-# Check for basic requirements
-check_requirements() {
-	# Check for bash version >= 4
-	if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
-		error "Bash version 4 or higher is required"
-	fi
+###############################################################################
+# Directory Management
+###############################################################################
 
-	# Check for required commands
-	local required_commands=("curl" "git")
-	for cmd in "${required_commands[@]}"; do
-		if ! command -v "$cmd" >/dev/null 2>&1; then
-			error "Required command not found: $cmd"
-		fi
-	done
-}
-
-# Setup installation directories
-setup_directories() {
+# Create all necessary directories for the system
+# This includes:
+# - System binary directories
+# - Configuration directories
+# - Cache directories
+setup_base_dirs() {
+	# Define all required directories
 	local dirs=(
-		"/opt/local/bin"
-		"/usr/local/bin"
+		"/opt/local/bin"                  # Preferred system-wide binary location
+		"/usr/local/bin"                  # Fallback binary location
+		"$HOME/.config/zsh/install/tools" # Tool installation scripts
+		"$HOME/.cache/zsh/tools"          # Build cache
 	)
 
+	info "Creating directory structure..."
 	for dir in "${dirs[@]}"; do
 		if [ ! -d "$dir" ]; then
-			if sudo -n mkdir -p "$dir" 2>/dev/null; then
-				sudo -n chmod 775 "$dir"
-				info "Created directory: $dir"
-			else
-				warn "Could not create directory: $dir"
+			if ! mkdir -p "$dir"; then
+				error "Failed to create directory: $dir"
 			fi
+			info "Created directory: $dir"
 		fi
 	done
 }
 
-# Main installation process
-main() {
-	local SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+###############################################################################
+# Script Installation
+###############################################################################
 
-	info "Starting installation..."
+# Install all scripts to their proper locations
+# Copies scripts from the source directory to their runtime locations
+# and sets appropriate permissions
+install_scripts() {
+	local script_dir="$(dirname "$(readlink -f "$0")")"
+	local config_dir="$HOME/.config/zsh"
 
-	# 1. Check basic requirements
-	check_requirements
+	info "Installing configuration scripts..."
 
-	# 2. Setup necessary directories
-	setup_directories
+	# Copy main management script
+	cp "$script_dir/dependencies.sh" "$config_dir/" || error "Failed to copy dependencies.sh"
 
-	# 3. Run dependencies installation
-	info "Running dependencies installation..."
-	bash "${SCRIPT_DIR}/dependencies.sh" || error "Dependencies installation failed"
+	# Copy installation support scripts
+	cp "$script_dir/install/"*.sh "$config_dir/install/" || error "Failed to copy support scripts"
 
-	info "Installation completed successfully"
+	# Copy individual tool installers
+	cp "$script_dir/install/tools/"*.sh "$config_dir/install/tools/" ||
+		error "Failed to copy tool scripts"
+
+	# Set executable permissions
+	chmod +x "$config_dir/dependencies.sh"
+	chmod +x "$config_dir/install/"*.sh
+	chmod +x "$config_dir/install/tools/"*.sh
+
+	info "Scripts installed successfully"
 }
 
-# Execute main function
+###############################################################################
+# Main Installation Process
+###############################################################################
+
+main() {
+	info "Starting installation process..."
+
+	# Create directory structure
+	setup_base_dirs
+
+	# Install all scripts
+	install_scripts
+
+	info "Installation complete. Use 'dependencies' command to install/update tools."
+}
+
+# Execute main installation process
 main "$@"
