@@ -167,16 +167,6 @@ remove_packaged_version() {
 # - Version management
 ###############################################################################
 
-# Get the appropriate system-wide installation directory
-# Strategy: Check for /opt/local first, then /usr/local
-get_system_install_dir() {
-	if [ -d "/opt/local" ]; then
-		echo "/opt/local"
-	else
-		echo "/usr/local"
-	fi
-}
-
 # Ensure Rust toolchain is installed and up to date
 ensure_rust_toolchain() {
 	# Remove any system-packaged Rust first
@@ -214,7 +204,14 @@ ensure_go_toolchain() {
 	remove_packaged_version "go"        # Arch-based
 
 	local latest_version=$(get_latest_go_version)
-	local install_dir=$(get_system_install_dir)
+
+	# Verify we have our installation base directory
+	if [ -z "${INSTALL_BASE_DIR:-}" ]; then
+		error "INSTALL_BASE_DIR not set"
+	fi
+
+	# Use the provided installation directory throughout the script
+	INSTALL_DIR="$INSTALL_BASE_DIR"
 
 	# Install/update Go if needed
 	if ! command_exists go || [[ "$(go version | awk '{print $3}')" != "go${latest_version}" ]]; then
@@ -223,21 +220,27 @@ ensure_go_toolchain() {
 		local OS="linux"
 
 		wget "https://go.dev/dl/go${latest_version}.${OS}-${ARCH}.tar.gz" -O /tmp/go.tar.gz
-		sudo rm -rf "${install_dir}/go"
-		sudo tar -C "${install_dir}" -xzf /tmp/go.tar.gz
+		sudo rm -rf "${INSTALL_DIR}/go"
+		sudo tar -C "${INSTALL_DIR}" -xzf /tmp/go.tar.gz
 		rm /tmp/go.tar.gz
 
 		# Ensure binary directory is in PATH
-		if [[ ":$PATH:" != *":${install_dir}/go/bin:"* ]]; then
-			export PATH=$PATH:${install_dir}/go/bin
+		if [[ ":$PATH:" != *":${INSTALL_DIR}/go/bin:"* ]]; then
+			export PATH=$PATH:${INSTALL_DIR}/go/bin
 		fi
 	fi
 }
 
 # Ensure Conda is installed and configured system-wide
 ensure_conda() {
-	local install_dir=$(get_system_install_dir)
-	local conda_dir="${install_dir}/conda"
+	# Verify we have our installation base directory
+	if [ -z "${INSTALL_BASE_DIR:-}" ]; then
+		error "INSTALL_BASE_DIR not set"
+	fi
+
+	# Use the provided installation directory throughout the script
+	INSTALL_DIR="$INSTALL_BASE_DIR"
+	local conda_dir="${INSTALL_DIR}/conda"
 
 	if ! command_exists conda; then
 		info "Installing Miniconda system-wide..."

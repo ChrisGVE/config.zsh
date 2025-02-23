@@ -19,6 +19,10 @@ REPO_URL="https://github.com/alexpasmantier/television"
 BINARY="tv"
 VERSION_CMD="--version"
 
+install_binary() {
+	sudo install -m755 binary "${INSTALL_BASE_DIR}/bin/" || error "Failed to install binary"
+}
+
 install_deps() {
 	info "Installing tv build dependencies..."
 	package_install "pkg-config"
@@ -55,7 +59,7 @@ build_tool() {
 	make release || error "Failed to build"
 
 	info "Installing tv..."
-	sudo install -m755 target/release/tv /usr/local/bin/ || error "Failed to install"
+	install_binary
 }
 
 # Install dependencies first

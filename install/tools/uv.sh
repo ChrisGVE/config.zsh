@@ -19,6 +19,10 @@ REPO_URL="https://github.com/astral-sh/uv"
 BINARY="uv"
 VERSION_CMD="--version"
 
+install_binary() {
+	sudo install -m755 binary "${INSTALL_BASE_DIR}/bin/" || error "Failed to install binary"
+}
+
 install_deps() {
 	info "Installing uv build dependencies..."
 	package_install "pkg-config"
@@ -54,7 +58,7 @@ build_tool() {
 	cargo build --release || error "Failed to build"
 
 	info "Installing uv..."
-	sudo install -m755 target/release/uv /usr/local/bin/ || error "Failed to install"
+	install_binary
 }
 
 # Install dependencies first

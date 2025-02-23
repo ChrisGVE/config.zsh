@@ -19,6 +19,10 @@ REPO_URL="https://github.com/sharkdp/bat"
 BINARY="bat"
 VERSION_CMD="--version"
 
+install_binary() {
+	sudo install -m755 binary "${INSTALL_BASE_DIR}/bin/" || error "Failed to install binary"
+}
+
 install_deps() {
 	info "Installing bat build dependencies..."
 	package_install "cmake"
@@ -56,7 +60,7 @@ build_tool() {
 	cargo build --release || error "Failed to build"
 
 	info "Installing bat..."
-	sudo install -m755 target/release/bat /usr/local/bin/ || error "Failed to install"
+	install_binary
 
 	# Create bat -> batcat symlink if needed
 	if ! command_exists batcat; then

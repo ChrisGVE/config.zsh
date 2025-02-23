@@ -19,6 +19,10 @@ REPO_URL="https://github.com/junegunn/fzf"
 BINARY="fzf"
 VERSION_CMD="--version"
 
+install_binary() {
+	sudo install -m755 binary "${INSTALL_BASE_DIR}/bin/" || error "Failed to install binary"
+}
+
 install_deps() {
 	info "Installing fzf build dependencies..."
 	ensure_go_toolchain
@@ -49,7 +53,7 @@ build_tool() {
 	make || error "Failed to build"
 
 	info "Installing fzf..."
-	sudo install -m755 target/fzf-linux_arm8 /usr/local/bin/fzf || error "Failed to install binary"
+	install_binary
 
 	# Install shell integration scripts
 	mkdir -p "${XDG_DATA_HOME}/fzf"

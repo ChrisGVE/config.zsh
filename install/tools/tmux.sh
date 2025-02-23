@@ -19,6 +19,10 @@ REPO_URL="https://github.com/tmux/tmux"
 BINARY="tmux"
 VERSION_CMD="-V"
 
+install_binary() {
+	sudo install -m755 binary "${INSTALL_BASE_DIR}/bin/" || error "Failed to install binary"
+}
+
 install_deps() {
 	info "Installing tmux build dependencies..."
 	package_install "libevent-dev"

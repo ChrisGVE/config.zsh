@@ -9,6 +9,10 @@ REPO_URL="https://github.com/ajeetdsouza/zoxide"
 BINARY="zoxide"
 VERSION_CMD="--version"
 
+install_binary() {
+	sudo install -m755 binary "${INSTALL_BASE_DIR}/bin/" || error "Failed to install binary"
+}
+
 install_deps() {
 	info "Installing zoxide build dependencies..."
 	ensure_rust_toolchain
@@ -38,7 +42,7 @@ build_tool() {
 	cargo build --release || error "Failed to build"
 
 	info "Installing zoxide..."
-	sudo install -m755 target/release/zoxide /usr/local/bin/ || error "Failed to install"
+	install_binary
 }
 
 # Install dependencies first

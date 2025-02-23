@@ -19,6 +19,10 @@ REPO_URL="https://github.com/jesseduffield/lazygit"
 BINARY="lazygit"
 VERSION_CMD="--version"
 
+install_binary() {
+	sudo install -m755 binary "${INSTALL_BASE_DIR}/bin/" || error "Failed to install binary"
+}
+
 install_deps() {
 	info "Installing lazygit build dependencies..."
 	ensure_go_toolchain
@@ -48,7 +52,7 @@ build_tool() {
 	go build || error "Failed to build"
 
 	info "Installing lazygit..."
-	sudo install -m755 lazygit /usr/local/bin/ || error "Failed to install"
+	install_binary
 }
 
 # Install dependencies first

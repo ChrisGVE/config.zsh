@@ -19,6 +19,10 @@ REPO_URL="https://github.com/sxyazi/yazi"
 BINARY="yazi"
 VERSION_CMD="--version"
 
+install_binary() {
+	sudo install -m755 binary "${INSTALL_BASE_DIR}/bin/" || error "Failed to install binary"
+}
+
 install_deps() {
 	info "Installing yazi build dependencies..."
 	package_install "pkg-config"
@@ -57,7 +61,7 @@ build_tool() {
 	cargo build --release || error "Failed to build"
 
 	info "Installing yazi..."
-	sudo install -m755 target/release/yazi /usr/local/bin/ || error "Failed to install"
+	install_binary
 }
 
 # Install dependencies first
