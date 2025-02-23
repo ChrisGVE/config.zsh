@@ -367,9 +367,6 @@ fi
 
 # Setup zoxide with custom cd handling
 if type zoxide >/dev/null 2>&1; then 
-    export _ZO_RESOLVE_SYMLINKS=0
-    export _ZO_MAXAGE=0
-    export _ZO_CMD_PREFIX="_z"
     eval "$(zoxide init zsh --cmd cd --hook pwd)"
 fi
 
