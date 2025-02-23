@@ -83,6 +83,25 @@ organize_scripts() {
 	info "Scripts organized successfully"
 }
 
+# Create executable links in PATH
+create_executable_links() {
+	local base_dir="$HOME/.config/zsh"
+	local bin_dir="/opt/local/bin"
+
+	# Use /usr/local/bin if /opt/local/bin doesn't exist
+	if [ ! -d "$bin_dir" ]; then
+		bin_dir="/usr/local/bin"
+	fi
+
+	info "Creating executable links..."
+
+	# Create dependencies command
+	sudo ln -sf "$base_dir/dependencies.sh" "$bin_dir/dependencies" ||
+		error "Failed to create dependencies command link"
+
+	info "Command links created successfully"
+}
+
 ###############################################################################
 # Main Installation Process
 ###############################################################################
@@ -95,6 +114,9 @@ main() {
 
 	# Organize scripts
 	organize_scripts
+
+	# Create executable links
+	create_executable_links
 
 	info "Installation complete. Use 'dependencies' command to install/update tools."
 }

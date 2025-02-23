@@ -131,6 +131,8 @@ _append_to_env() {
 ####################
 # Core system paths
 _append_to_env "/usr/local/sbin" ":" "PATH"
+_append_to_env "/usr/local/bin" ":" "PATH"
+_append_to_env "/opt/local/bin" ":" "PATH"
 _append_to_env "$HOME/bin" ":" "PATH"
 _append_to_env "$HOME/Scripts" ":" "PATH"
 _append_to_env "$XDG_BIN_HOME" ":" "PATH"
