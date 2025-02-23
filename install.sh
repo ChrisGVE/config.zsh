@@ -5,21 +5,19 @@
 #
 # Purpose:
 # This script handles the initial installation of the zsh configuration system.
-# It sets up the directory structure and copies all scripts to their proper
-# locations. This is a one-time setup script that should be run before using
+# It sets up the directory structure and ensures all scripts are in their proper
+# locations. This is a one-time setup script that prepares the environment for
 # the dependencies management system.
 #
-# Directory Structure Created:
-# /opt/local/bin or /usr/local/bin - System-wide tool installation
-# ~/.config/zsh/                    - Main configuration directory
+# Directory Structure:
+# ~/.config/zsh/                    - Main configuration directory (source)
 # ├── install/                      - Installation support scripts
 # │   ├── common.sh                 - Common functions
 # │   ├── toolchains.sh            - Toolchain management
 # │   └── tools/                    - Individual tool installers
-# └── dependencies.sh              - Main management script
+# └── dependencies.sh               - Main management script
 #
-# After installation, users should use the 'dependencies' command to
-# manage tool installations and updates.
+# /opt/local/bin or /usr/local/bin - System-wide tool installation (target)
 ###############################################################################
 
 set -euo pipefail
@@ -38,16 +36,14 @@ error() {
 
 # Create all necessary directories for the system
 # This includes:
-# - System binary directories
-# - Configuration directories
-# - Cache directories
+# - System binary directories for tool installation
+# - Cache directories for building
 setup_base_dirs() {
 	# Define all required directories
 	local dirs=(
-		"/opt/local/bin"                  # Preferred system-wide binary location
-		"/usr/local/bin"                  # Fallback binary location
-		"$HOME/.config/zsh/install/tools" # Tool installation scripts
-		"$HOME/.cache/zsh/tools"          # Build cache
+		"/opt/local/bin"         # Preferred system-wide binary location
+		"/usr/local/bin"         # Fallback binary location
+		"$HOME/.cache/zsh/tools" # Build cache
 	)
 
 	info "Creating directory structure..."
@@ -62,42 +58,29 @@ setup_base_dirs() {
 }
 
 ###############################################################################
-# Script Installation
+# Script Organization
 ###############################################################################
 
-# Install all scripts to their proper locations
-# Copies scripts from the source directory to their runtime locations
-# and sets appropriate permissions
-install_scripts() {
-	local script_dir="$(dirname "$(readlink -f "$0")")"
-	local config_dir="$HOME/.config/zsh"
+# Ensure scripts are properly organized
+organize_scripts() {
+	local base_dir="$HOME/.config/zsh"
 
-	info "Installing configuration scripts..."
+	info "Organizing installation scripts..."
 
-	# Check if we're already in the target directory
-	if [[ "$script_dir" == "$config_dir" ]]; then
-		error "Cannot install from target directory. Please run install.sh from the source directory."
+	# Ensure install directory exists
+	mkdir -p "$base_dir/install/tools"
+
+	# Move scripts to their proper locations if needed
+	if [ -f "dependencies.sh" ] && [ ! -f "$base_dir/dependencies.sh" ]; then
+		mv dependencies.sh "$base_dir/"
 	fi
 
-	# Create install directory if it doesn't exist
-	mkdir -p "$config_dir/install/tools"
+	# Ensure proper permissions
+	chmod +x "$base_dir/dependencies.sh"
+	chmod +x "$base_dir/install/"*.sh
+	chmod +x "$base_dir/install/tools/"*.sh
 
-	# Copy main management script
-	cp "$script_dir/dependencies.sh" "$config_dir/" || error "Failed to copy dependencies.sh"
-
-	# Copy installation support scripts
-	cp "$script_dir/install/"*.sh "$config_dir/install/" || error "Failed to copy support scripts"
-
-	# Copy individual tool installers
-	cp "$script_dir/install/tools/"*.sh "$config_dir/install/tools/" ||
-		error "Failed to copy tool scripts"
-
-	# Set executable permissions
-	chmod +x "$config_dir/dependencies.sh"
-	chmod +x "$config_dir/install/"*.sh
-	chmod +x "$config_dir/install/tools/"*.sh
-
-	info "Scripts installed successfully"
+	info "Scripts organized successfully"
 }
 
 ###############################################################################
@@ -107,11 +90,11 @@ install_scripts() {
 main() {
 	info "Starting installation process..."
 
-	# Create directory structure
+	# Create system directories
 	setup_base_dirs
 
-	# Install all scripts
-	install_scripts
+	# Organize scripts
+	organize_scripts
 
 	info "Installation complete. Use 'dependencies' command to install/update tools."
 }
