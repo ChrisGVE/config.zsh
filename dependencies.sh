@@ -135,14 +135,14 @@ main() {
 
 	# 3. Ensure development toolchains are installed and up to date
 	info "Setting up development toolchains..."
-	bash "${SCRIPT_DIR}/toolchains.sh" "$INSTALL_DIR" || error "Toolchain setup failed"
+	bash "${SCRIPT_DIR}/install/toolchains.sh" "$INSTALL_DIR" || error "Toolchain setup failed"
 
 	# 4. Source common functions for tool installation
 	export INSTALL_BASE_DIR="$INSTALL_DIR" # Export for all child scripts
-	source "${SCRIPT_DIR}/common.sh" || error "Failed to source common functions"
+	source "${SCRIPT_DIR}/install/common.sh" || error "Failed to source common functions"
 
 	# 5. Process each tool installation script
-	local TOOLS_DIR="${SCRIPT_DIR}/tools"
+	local TOOLS_DIR="${SCRIPT_DIR}/install/tools"
 	if [ ! -d "$TOOLS_DIR" ]; then
 		error "Tools directory not found: $TOOLS_DIR"
 	fi
