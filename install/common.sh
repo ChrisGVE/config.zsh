@@ -167,6 +167,60 @@ remove_packaged_version() {
 # - Version management
 ###############################################################################
 
+###############################################################################
+# Permission Management
+###############################################################################
+
+# Ensure proper ownership and permissions for a directory
+# Args:
+#   $1: Directory path
+#   $2: Optional custom permissions (default: 775)
+ensure_dir_permissions() {
+	local dir="$1"
+	local perms="${2:-775}"
+
+	sudo mkdir -p "$dir"
+	sudo chmod "$perms" "$dir"
+	sudo chown root:staff "$dir"
+}
+
+# Create symlink with proper permissions
+# Args:
+#   $1: Source path
+#   $2: Target path
+create_managed_symlink() {
+	local src="$1"
+	local target="$2"
+
+	sudo ln -sf "$src" "$target"
+	sudo chown -h root:staff "$target"
+}
+
+# Setup temporary build directory
+# Args:
+#   $1: Tool name
+# Returns: Path to temporary directory
+setup_temp_build_dir() {
+	local tool_name="$1"
+	local tmp_dir="/tmp/${tool_name}_build_$(date +%s)"
+
+	mkdir -p "$tmp_dir"
+	chmod 755 "$tmp_dir"
+
+	echo "$tmp_dir"
+}
+
+# Cleanup temporary build directory
+# Args:
+#   $1: Directory path
+cleanup_temp_dir() {
+	local dir="$1"
+
+	if [[ "$dir" == /tmp/* ]]; then # Safety check
+		rm -rf "$dir"
+	fi
+}
+
 # Ensure Rust toolchain is installed and up to date
 ensure_rust_toolchain() {
 	# Remove any system-packaged Rust first

@@ -91,14 +91,28 @@ install_miniconda() {
 
 	# Check for force update or missing installation
 	if [ "$force" = "true" ] || [ ! -f "$conda_bin" ]; then
-		curl -L "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-$(uname -m).sh" -o "/tmp/miniconda.sh"
-		sudo bash "/tmp/miniconda.sh" -b -p "$conda_dir"
-		rm -f "/tmp/miniconda.sh"
+		local tmp_dir=$(setup_temp_build_dir "miniconda")
+		local installer="$tmp_dir/miniconda.sh"
 
-		sudo chmod -R 775 "$conda_dir"
-		sudo chown -R root:staff "$conda_dir"
-		sudo ln -sf "$conda_bin" "$base_dir/bin/conda"
+		# Download installer
+		curl -L "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-$(uname -m).sh" -o "$installer"
 
+		# Prepare installation directory
+		ensure_dir_permissions "$conda_dir"
+
+		# Install Miniconda
+		sudo bash "$installer" -b -p "$conda_dir"
+
+		# Set permissions recursively after installation
+		ensure_dir_permissions "$conda_dir" "775" true # true for recursive
+
+		# Create symlink
+		create_managed_symlink "$conda_bin" "$base_dir/bin/conda"
+
+		# Cleanup
+		cleanup_temp_dir "$tmp_dir"
+
+		# Record state
 		"$conda_bin" --version >"$version_info"
 		TOOLCHAIN_STATES["conda"]="installed"
 		TOOLCHAIN_VERSIONS["conda"]=$(cat "$version_info")
@@ -122,17 +136,29 @@ install_rust() {
 	info "Processing Rust toolchain..."
 
 	if [ "$force" = "true" ] || ! command -v rustup >/dev/null 2>&1; then
-		sudo mkdir -p "$rust_dir"
-		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
-			sudo RUSTUP_HOME="$rust_dir/rustup" CARGO_HOME="$rust_dir/cargo" sh -s -- -y --no-modify-path
+		local tmp_dir=$(setup_temp_build_dir "rust")
+		local installer="$tmp_dir/rustup-init.sh"
 
-		sudo chmod -R 775 "$rust_dir"
-		sudo chown -R root:staff "$rust_dir"
+		# Download rustup installer
+		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o "$installer"
+		chmod +x "$installer"
+
+		# Prepare rust directories
+		ensure_dir_permissions "$rust_dir"
+		ensure_dir_permissions "$rust_dir/rustup"
+		ensure_dir_permissions "$rust_dir/cargo"
+
+		# Install Rust with proper permissions
+		sudo -E env "RUSTUP_HOME=$rust_dir/rustup" "CARGO_HOME=$rust_dir/cargo" \
+			bash "$installer" -y --no-modify-path
 
 		# Create symlinks
-		sudo ln -sf "$rust_dir/cargo/bin/cargo" "$base_dir/bin/cargo"
-		sudo ln -sf "$rust_dir/cargo/bin/rustc" "$base_dir/bin/rustc"
-		sudo ln -sf "$rust_dir/cargo/bin/rustup" "$base_dir/bin/rustup"
+		create_managed_symlink "$rust_dir/cargo/bin/cargo" "$base_dir/bin/cargo"
+		create_managed_symlink "$rust_dir/cargo/bin/rustc" "$base_dir/bin/rustc"
+		create_managed_symlink "$rust_dir/cargo/bin/rustup" "$base_dir/bin/rustup"
+
+		# Cleanup
+		cleanup_temp_dir "$tmp_dir"
 
 		TOOLCHAIN_STATES["rust"]="installed"
 		TOOLCHAIN_VERSIONS["rust"]=$("$rust_dir/cargo/bin/rustc" --version | cut -d' ' -f2)
@@ -151,25 +177,46 @@ install_go() {
 	local base_dir="$1"
 	local force="$2"
 	local go_dir="$base_dir/go"
-	local version=$(curl -s https://go.dev/dl/?mode=json | grep -o '"version": "go[0-9.]*"' | head -1 | grep -o '[0-9.]*')
 
 	info "Processing Go toolchain..."
 
-	if [ "$force" = "true" ] || [ ! -d "$go_dir" ] || [ "$(go version 2>/dev/null | grep -o 'go[0-9.]*' | grep -o '[0-9.]*')" != "$version" ]; then
+	# Get latest version information
+	local version=$(curl -s https://go.dev/dl/?mode=json |
+		grep -o '"version": "go[0-9.]*"' |
+		head -1 |
+		grep -o '[0-9.]*')
+
+	if [ "$force" = "true" ] ||
+		[ ! -d "$go_dir" ] ||
+		[ "$(go version 2>/dev/null | grep -o 'go[0-9.]*' | grep -o '[0-9.]*')" != "$version" ]; then
+
+		local tmp_dir=$(setup_temp_build_dir "go")
+		local archive="$tmp_dir/go.tar.gz"
+
+		# Determine architecture
 		local arch="$(uname -m)"
 		[ "$arch" = "x86_64" ] && arch="amd64"
 		[ "$arch" = "aarch64" ] && arch="arm64"
 
-		curl -L "https://go.dev/dl/go${version}.linux-${arch}.tar.gz" -o "/tmp/go.tar.gz"
+		# Download Go
+		curl -L "https://go.dev/dl/go${version}.linux-${arch}.tar.gz" -o "$archive"
+
+		# Prepare directory
+		ensure_dir_permissions "$go_dir"
+
+		# Extract Go
 		sudo rm -rf "$go_dir"
-		sudo tar -C "$base_dir" -xzf "/tmp/go.tar.gz"
-		rm -f "/tmp/go.tar.gz"
+		sudo tar -C "$base_dir" -xzf "$archive"
 
-		sudo chmod -R 775 "$go_dir"
-		sudo chown -R root:staff "$go_dir"
+		# Set permissions
+		ensure_dir_permissions "$go_dir" "775" true
 
-		sudo ln -sf "$go_dir/bin/go" "$base_dir/bin/go"
-		sudo ln -sf "$go_dir/bin/gofmt" "$base_dir/bin/gofmt"
+		# Create symlinks
+		create_managed_symlink "$go_dir/bin/go" "$base_dir/bin/go"
+		create_managed_symlink "$go_dir/bin/gofmt" "$base_dir/bin/gofmt"
+
+		# Cleanup
+		cleanup_temp_dir "$tmp_dir"
 
 		TOOLCHAIN_STATES["go"]="installed"
 		TOOLCHAIN_VERSIONS["go"]="$version"
@@ -187,24 +234,43 @@ install_zig() {
 	local base_dir="$1"
 	local force="$2"
 	local zig_dir="$base_dir/zig"
-	local version=$(curl -s https://ziglang.org/download/index.json | grep -o '"version": "[0-9.]*"' | head -1 | grep -o '[0-9.]*')
 
 	info "Processing Zig toolchain..."
 
+	# Get latest version
+	local version=$(curl -s https://ziglang.org/download/index.json |
+		grep -o '"version": "[0-9.]*"' |
+		head -1 |
+		grep -o '[0-9.]*')
+
 	if [ "$force" = "true" ] || [ ! -d "$zig_dir" ] || [ "$(zig version 2>/dev/null)" != "$version" ]; then
+		local tmp_dir=$(setup_temp_build_dir "zig")
+		local archive="$tmp_dir/zig.tar.xz"
+
+		# Determine architecture
 		local arch="$(uname -m)"
 		[ "$arch" = "x86_64" ] && arch="x86_64"
 		[ "$arch" = "aarch64" ] && arch="aarch64"
 
-		curl -L "https://ziglang.org/download/$version/zig-linux-${arch}-$version.tar.xz" -o "/tmp/zig.tar.xz"
+		# Download Zig
+		curl -L "https://ziglang.org/download/$version/zig-linux-${arch}-$version.tar.xz" -o "$archive"
+
+		# Prepare directory
+		ensure_dir_permissions "$zig_dir"
+
+		# Extract and install
 		sudo rm -rf "$zig_dir"
 		sudo mkdir -p "$zig_dir"
-		sudo tar -C "$zig_dir" --strip-components=1 -xJf "/tmp/zig.tar.xz"
-		rm -f "/tmp/zig.tar.xz"
+		sudo tar -C "$zig_dir" --strip-components=1 -xJf "$archive"
 
-		sudo chmod -R 775 "$zig_dir"
-		sudo chown -R root:staff "$zig_dir"
-		sudo ln -sf "$zig_dir/zig" "$base_dir/bin/zig"
+		# Set permissions
+		ensure_dir_permissions "$zig_dir" "775" true
+
+		# Create symlink
+		create_managed_symlink "$zig_dir/zig" "$base_dir/bin/zig"
+
+		# Cleanup
+		cleanup_temp_dir "$tmp_dir"
 
 		TOOLCHAIN_STATES["zig"]="installed"
 		TOOLCHAIN_VERSIONS["zig"]="$version"
@@ -222,29 +288,44 @@ install_perl() {
 	local base_dir="$1"
 	local force="$2"
 	local perl_dir="$base_dir/perl"
-	local version=$(curl -s https://www.perl.org/get.html | grep -o 'perl-[0-9.]*\.tar\.gz' | head -1 | grep -o '[0-9.]*')
 
 	info "Processing Perl toolchain..."
 
+	# Get latest version
+	local version=$(curl -s https://www.perl.org/get.html |
+		grep -o 'perl-[0-9.]*\.tar\.gz' |
+		head -1 |
+		grep -o '[0-9.]*')
+
 	if [ "$force" = "true" ] || [ ! -d "$perl_dir" ] || [ "$(perl -v | grep -o '[0-9.]*' | head -1)" != "$version" ]; then
-		local tmp_dir="/tmp/perl-build"
-		mkdir -p "$tmp_dir"
-		curl -L "https://www.cpan.org/src/5.0/perl-$version.tar.gz" -o "$tmp_dir/perl.tar.gz"
+		local tmp_dir=$(setup_temp_build_dir "perl")
+		local archive="$tmp_dir/perl.tar.gz"
+
+		# Download Perl
+		curl -L "https://www.cpan.org/src/5.0/perl-$version.tar.gz" -o "$archive"
+
+		# Extract and prepare for build
 		cd "$tmp_dir"
 		tar xzf "perl.tar.gz"
 		cd "perl-$version"
 
+		# Prepare installation directory
+		ensure_dir_permissions "$perl_dir"
+
+		# Configure and build
 		sudo ./Configure -des -Dprefix="$perl_dir"
 		sudo make
 		sudo make install
 
-		cd
-		rm -rf "$tmp_dir"
+		# Set permissions
+		ensure_dir_permissions "$perl_dir" "775" true
 
-		sudo chmod -R 775 "$perl_dir"
-		sudo chown -R root:staff "$perl_dir"
-		sudo ln -sf "$perl_dir/bin/perl" "$base_dir/bin/perl"
-		sudo ln -sf "$perl_dir/bin/cpan" "$base_dir/bin/cpan"
+		# Create symlinks
+		create_managed_symlink "$perl_dir/bin/perl" "$base_dir/bin/perl"
+		create_managed_symlink "$perl_dir/bin/cpan" "$base_dir/bin/cpan"
+
+		# Cleanup
+		cleanup_temp_dir "$tmp_dir"
 
 		TOOLCHAIN_STATES["perl"]="installed"
 		TOOLCHAIN_VERSIONS["perl"]="$version"
