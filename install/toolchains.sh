@@ -129,47 +129,52 @@ install_miniconda() {
 ###############################################################################
 
 install_rust() {
+	set -x # Enable command tracing
 	local base_dir="$1"
 	local force="$2"
 	local rust_dir="$base_dir/rust"
 
 	info "Processing Rust toolchain..."
+	info "Using rust_dir: $rust_dir"
 
 	if [ "$force" = "true" ] || ! command -v rustup >/dev/null 2>&1; then
 		local tmp_dir=$(setup_temp_build_dir "rust")
 		local installer="$tmp_dir/rustup-init.sh"
 
-		# Download rustup installer
+		info "Creating directories..."
+		ls -la "$base_dir" # Check base directory permissions
+
+		# Create all required directories with verbose output
+		for dir in "$rust_dir" "$rust_dir/rustup" "$rust_dir/cargo" "$rust_dir/rustup/tmp" "$rust_dir/rustup/downloads" "$rust_dir/rustup/settings"; do
+			info "Creating and setting permissions for: $dir"
+			ensure_dir_permissions "$dir"
+			ls -la "$dir" # Verify permissions
+		done
+
+		info "Downloading rustup installer..."
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o "$installer"
 		chmod +x "$installer"
 
-		# Create all required directories with proper permissions
-		ensure_dir_permissions "$rust_dir"
-		ensure_dir_permissions "$rust_dir/rustup"
-		ensure_dir_permissions "$rust_dir/cargo"
-		ensure_dir_permissions "$rust_dir/rustup/tmp"       # rustup needs this
-		ensure_dir_permissions "$rust_dir/rustup/downloads" # and this
-
-		# Create initial config to prevent rustup from trying to create it
-		sudo mkdir -p "$rust_dir/rustup/settings"
+		info "Creating initial rustup settings..."
 		echo '{}' | sudo tee "$rust_dir/rustup/settings/settings.toml" >/dev/null
 
-		# Run installer as root but with proper environment
+		info "Setting up environment..."
 		export RUSTUP_HOME="$rust_dir/rustup"
 		export CARGO_HOME="$rust_dir/cargo"
 
+		info "Running installer with: RUSTUP_HOME=$RUSTUP_HOME CARGO_HOME=$CARGO_HOME"
 		sudo -E bash "$installer" --no-modify-path -y
 
-		# Fix permissions after installation
+		info "Post-installation setup..."
 		ensure_dir_permissions "$rust_dir" "775" true
 
-		# Create symlinks
+		info "Creating symlinks..."
 		create_managed_symlink "$rust_dir/cargo/bin/cargo" "$base_dir/bin/cargo"
 		create_managed_symlink "$rust_dir/cargo/bin/rustc" "$base_dir/bin/rustc"
 		create_managed_symlink "$rust_dir/cargo/bin/rustup" "$base_dir/bin/rustup"
 
-		# Cleanup
 		cleanup_temp_dir "$tmp_dir"
+		set +x # Disable command tracing
 
 		TOOLCHAIN_STATES["rust"]="installed"
 		TOOLCHAIN_VERSIONS["rust"]=$("$rust_dir/cargo/bin/rustc" --version | cut -d' ' -f2)
