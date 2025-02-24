@@ -143,14 +143,25 @@ install_rust() {
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o "$installer"
 		chmod +x "$installer"
 
-		# Prepare rust directories
+		# Create all required directories with proper permissions
 		ensure_dir_permissions "$rust_dir"
 		ensure_dir_permissions "$rust_dir/rustup"
 		ensure_dir_permissions "$rust_dir/cargo"
+		ensure_dir_permissions "$rust_dir/rustup/tmp"       # rustup needs this
+		ensure_dir_permissions "$rust_dir/rustup/downloads" # and this
 
-		# Install Rust with proper permissions
-		sudo -E env "RUSTUP_HOME=$rust_dir/rustup" "CARGO_HOME=$rust_dir/cargo" \
-			bash "$installer" -y --no-modify-path
+		# Create initial config to prevent rustup from trying to create it
+		sudo mkdir -p "$rust_dir/rustup/settings"
+		echo '{}' | sudo tee "$rust_dir/rustup/settings/settings.toml" >/dev/null
+
+		# Run installer as root but with proper environment
+		export RUSTUP_HOME="$rust_dir/rustup"
+		export CARGO_HOME="$rust_dir/cargo"
+
+		sudo -E bash "$installer" --no-modify-path -y
+
+		# Fix permissions after installation
+		ensure_dir_permissions "$rust_dir" "775" true
 
 		# Create symlinks
 		create_managed_symlink "$rust_dir/cargo/bin/cargo" "$base_dir/bin/cargo"
