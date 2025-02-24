@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 
-# Set up environment
-set -f # Disable glob expansion
-ZSHENV="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/zshenv"
-export BASH_SOURCE_ZSHENV=$(grep -v '\[\[' "$ZSHENV")
-eval "$BASH_SOURCE_ZSHENV"
-set +f # Re-enable glob expansion
-
-# Set installation directory
-INSTALL_DATA_DIR="${XDG_DATA_HOME}/zsh/install"
+###############################################################################
+# UV Installation Script
+#
+# Purpose:
+# Installs or updates uv (https://github.com/astral-sh/uv)
+# A fast Python package installer and resolver
+#
+# Dependencies:
+# - Rust toolchain (automatically managed)
+# - pkg-config and SSL development files
+###############################################################################
 
 # Source common functions
-source "${INSTALL_DATA_DIR}/common.sh"
+source "$(dirname "$0")/../common.sh"
 
 # Tool-specific configuration
 TOOL_NAME="uv"
@@ -19,14 +21,14 @@ REPO_URL="https://github.com/astral-sh/uv"
 BINARY="uv"
 VERSION_CMD="--version"
 
-install_binary() {
-	sudo install -m755 binary "${INSTALL_BASE_DIR}/bin/" || error "Failed to install binary"
-}
+###############################################################################
+# Installation Functions
+###############################################################################
 
 install_deps() {
-	info "Installing uv build dependencies..."
+	info "Installing $TOOL_NAME build dependencies..."
 	package_install "pkg-config"
-	ensure_rust_toolchain
+	package_install "libssl-dev"
 }
 
 build_tool() {
@@ -40,16 +42,17 @@ build_tool() {
 
 	cd "$build_dir" || error "Failed to enter build directory: $build_dir"
 
+	# Checkout appropriate version
 	if [ "$version_type" = "stable" ]; then
-		latest_version=$(get_target_version "$build_dir" "stable")
-		info "Checking out stable version: $latest_version"
+		local latest_version=$(get_target_version "$build_dir" "stable")
+		info "Building version: $latest_version"
 		git checkout "$latest_version" || error "Failed to checkout version $latest_version"
 	else
-		info "Using development version (HEAD)"
+		info "Building from latest HEAD"
 		git checkout master || error "Failed to checkout master branch"
 	fi
 
-	info "Building uv..."
+	info "Building $TOOL_NAME..."
 	# Configure build flags for Rust
 	configure_build_flags
 	export CARGO_BUILD_JOBS="${MAKE_FLAGS#-j}"
@@ -57,14 +60,18 @@ build_tool() {
 	# Build with cargo
 	cargo build --release || error "Failed to build"
 
-	info "Installing uv..."
-	install_binary
+	info "Installing $TOOL_NAME..."
+	sudo install -m755 target/release/uv "$BASE_DIR/bin/" || error "Failed to install"
 }
+
+###############################################################################
+# Main Installation Process
+###############################################################################
 
 # Install dependencies first
 install_deps
 
-# Setup repository
+# Setup repository in cache
 REPO_DIR=$(setup_tool_repo "$TOOL_NAME" "$REPO_URL")
 
 # Run installation/update

@@ -4,26 +4,34 @@
 # Installation Script
 #
 # Purpose:
-# This script handles the initial installation of the zsh configuration system.
-# It sets up the directory structure and ensures all scripts are in their proper
-# locations. This is a one-time setup script that prepares the environment for
-# the dependencies management system.
+# This script handles the initial setup of the global development environment.
+# It creates the necessary directory structure and installs core configuration
+# files in system-wide locations.
 #
 # Directory Structure:
-# ~/.config/zsh/                    - Main configuration directory (source)
-# ├── install/                      - Installation support scripts
-# │   ├── common.sh                 - Common functions
-# │   ├── toolchains.sh            - Toolchain management
-# │   └── tools/                    - Individual tool installers
-# └── dependencies.sh               - Main management script
+# /opt/local/ or /usr/local/    - Base installation directory
+# ├── bin/                      - Executables and symlinks
+# ├── etc/                      - Configuration files
+# │   └── dev/                  - Development environment configuration
+# │       ├── tools.conf       - Tool configuration
+# │       ├── common.sh        - Common functions
+# │       ├── toolchains.sh    - Toolchain management
+# │       └── tools/           - Individual tool installers
+# ├── share/                    - Shared data files
+# │   └── dev/                 - Development tools shared data
+# │       └── cache/          - Build and operation cache
+# └── lib/                      - Libraries and dependencies
 #
-# /opt/local/bin or /usr/local/bin - System-wide tool installation (target)
+# This structure ensures:
+# - All components are globally accessible
+# - Clear separation between executables, configuration, and data
+# - Consistent permissions and ownership
+# - System-wide cache management
 ###############################################################################
 
 set -euo pipefail
 
 # Status message functions
-# Print informational messages to stderr to keep stdout clean
 info() { echo "[INFO] $1" >&2; }
 error() {
 	echo "[ERROR] $1"
@@ -34,72 +42,86 @@ error() {
 # Directory Management
 ###############################################################################
 
-# Create all necessary directories for the system
-# This includes:
-# - System binary directories for tool installation
-# - Cache directories for building
-setup_base_dirs() {
-	# Define all required directories
+# Determine the base installation directory
+get_base_dir() {
+	if [ -d "/opt/local" ]; then
+		echo "/opt/local"
+	elif [ -d "/usr/local" ]; then
+		echo "/usr/local"
+	else
+		# Default to /opt/local if neither exists
+		echo "/opt/local"
+	fi
+}
+
+# Create directory structure with proper permissions
+setup_directories() {
+	local base_dir="$1"
 	local dirs=(
-		"/opt/local/bin"         # Preferred system-wide binary location
-		"/usr/local/bin"         # Fallback binary location
-		"$HOME/.cache/zsh/tools" # Build cache
+		"$base_dir/bin"
+		"$base_dir/etc/dev"
+		"$base_dir/share/dev/cache"
+		"$base_dir/lib"
 	)
 
 	info "Creating directory structure..."
 	for dir in "${dirs[@]}"; do
 		if [ ! -d "$dir" ]; then
-			if ! mkdir -p "$dir"; then
+			if ! sudo mkdir -p "$dir"; then
 				error "Failed to create directory: $dir"
 			fi
+			sudo chown root:staff "$dir"
+			sudo chmod 775 "$dir"
 			info "Created directory: $dir"
 		fi
 	done
 }
 
 ###############################################################################
-# Script Organization
+# Configuration Installation
 ###############################################################################
 
-# Ensure scripts are properly organized
-organize_scripts() {
-	local base_dir="$HOME/.config/zsh"
+# Install configuration files and scripts
+install_configs() {
+	local base_dir="$1"
+	local config_dir="$base_dir/etc/dev"
+	local source_dir="$(dirname "$(readlink -f "$0")")"
 
-	info "Organizing installation scripts..."
+	info "Installing configuration files..."
 
-	# Ensure install directory exists
-	mkdir -p "$base_dir/install/tools"
+	# Install main configuration
+	sudo cp "$source_dir/tools.conf" "$config_dir/"
+	sudo cp "$source_dir/install/"*.sh "$config_dir/"
+	sudo cp -r "$source_dir/install/tools" "$config_dir/"
 
-	# Move scripts to their proper locations if needed
-	if [ -f "dependencies.sh" ] && [ ! -f "$base_dir/dependencies.sh" ]; then
-		mv dependencies.sh "$base_dir/"
-	fi
+	# Set permissions
+	sudo chown -R root:staff "$config_dir"
+	sudo chmod -R 775 "$config_dir"
+	sudo chmod 664 "$config_dir/tools.conf"
+	sudo chmod 775 "$config_dir/"*.sh
+	sudo chmod 775 "$config_dir/tools/"*.sh
 
-	# Ensure proper permissions
-	chmod +x "$base_dir/dependencies.sh"
-	chmod +x "$base_dir/install/"*.sh
-	chmod +x "$base_dir/install/tools/"*.sh
-
-	info "Scripts organized successfully"
+	info "Configuration files installed successfully"
 }
 
-# Create executable links in PATH
-create_executable_links() {
-	local base_dir="$HOME/.config/zsh"
-	local bin_dir="/opt/local/bin"
+# Create main executable
+create_dependencies_command() {
+	local base_dir="$1"
+	local script_path="$base_dir/bin/dependencies"
 
-	# Use /usr/local/bin if /opt/local/bin doesn't exist
-	if [ ! -d "$bin_dir" ]; then
-		bin_dir="/usr/local/bin"
-	fi
+	info "Creating dependencies command..."
 
-	info "Creating executable links..."
+	# Create the wrapper script
+	cat <<EOF | sudo tee "$script_path" >/dev/null
+#!/usr/bin/env bash
+source "$base_dir/etc/dev/common.sh"
+exec "$base_dir/etc/dev/dependencies.sh" "\$@"
+EOF
 
-	# Create dependencies command
-	sudo ln -sf "$base_dir/dependencies.sh" "$bin_dir/dependencies" ||
-		error "Failed to create dependencies command link"
+	sudo chown root:staff "$script_path"
+	sudo chmod 775 "$script_path"
 
-	info "Command links created successfully"
+	info "Dependencies command created successfully"
 }
 
 ###############################################################################
@@ -107,18 +129,22 @@ create_executable_links() {
 ###############################################################################
 
 main() {
-	info "Starting installation process..."
+	info "Starting global installation process..."
 
-	# Create system directories
-	setup_base_dirs
+	# Get base installation directory
+	local base_dir="$(get_base_dir)"
+	info "Using base directory: $base_dir"
 
-	# Organize scripts
-	organize_scripts
+	# Create directory structure
+	setup_directories "$base_dir"
 
-	# Create executable links
-	create_executable_links
+	# Install configuration files
+	install_configs "$base_dir"
 
-	info "Installation complete. Use 'dependencies' command to install/update tools."
+	# Create dependencies command
+	create_dependencies_command "$base_dir"
+
+	info "Installation complete. Use 'dependencies' command to manage development tools."
 }
 
 # Execute main installation process

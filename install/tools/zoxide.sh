@@ -1,39 +1,56 @@
 #!/usr/bin/env bash
 
-# Source common functions which will setup the environment
-source "${XDG_DATA_HOME:-$HOME/.local/share}/zsh/install/common.sh"
+###############################################################################
+# Zoxide Installation Script
+#
+# Purpose:
+# Installs or updates zoxide (https://github.com/ajeetdsouza/zoxide)
+# A smarter cd command inspired by z and autojump
+#
+# Dependencies:
+# - Rust toolchain (automatically managed)
+###############################################################################
+
+# Source common functions
+source "$(dirname "$0")/../common.sh"
 
 # Tool-specific configuration
 TOOL_NAME="zoxide"
 REPO_URL="https://github.com/ajeetdsouza/zoxide"
 BINARY="zoxide"
-VERSION_CMD="--version"
+VERSION_CMD="-V"
 
-install_binary() {
-	sudo install -m755 binary "${INSTALL_BASE_DIR}/bin/" || error "Failed to install binary"
-}
+###############################################################################
+# Installation Functions
+###############################################################################
 
 install_deps() {
-	info "Installing zoxide build dependencies..."
-	ensure_rust_toolchain
+	info "Installing $TOOL_NAME build dependencies..."
+	# No additional dependencies beyond Rust
 }
 
 build_tool() {
 	local build_dir="$1"
 	local version_type="$2"
 
-	cd "$build_dir" || error "Failed to enter build directory"
+	if [ ! -d "$build_dir" ]; then
+		error "Build directory does not exist: $build_dir"
+		return 1
+	fi
 
+	cd "$build_dir" || error "Failed to enter build directory: $build_dir"
+
+	# Checkout appropriate version
 	if [ "$version_type" = "stable" ]; then
-		latest_version=$(get_target_version "$build_dir" "stable")
-		info "Checking out stable version: $latest_version"
+		local latest_version=$(get_target_version "$build_dir" "stable")
+		info "Building version: $latest_version"
 		git checkout "$latest_version" || error "Failed to checkout version $latest_version"
 	else
-		info "Using development version (HEAD)"
+		info "Building from latest HEAD"
 		git checkout master || error "Failed to checkout master branch"
 	fi
 
-	info "Building zoxide..."
+	info "Building $TOOL_NAME..."
 	# Configure build flags for Rust
 	configure_build_flags
 	export CARGO_BUILD_JOBS="${MAKE_FLAGS#-j}"
@@ -41,14 +58,24 @@ build_tool() {
 	# Build with cargo
 	cargo build --release || error "Failed to build"
 
-	info "Installing zoxide..."
-	install_binary
+	info "Installing $TOOL_NAME..."
+	sudo install -m755 target/release/zoxide "$BASE_DIR/bin/" || error "Failed to install"
+
+	# Install shell completions system-wide
+	sudo mkdir -p "$BASE_DIR/share/zoxide"
+	if [ -d "contrib" ]; then
+		sudo cp -r contrib/* "$BASE_DIR/share/zoxide/" || warn "Failed to install completions"
+	fi
 }
+
+###############################################################################
+# Main Installation Process
+###############################################################################
 
 # Install dependencies first
 install_deps
 
-# Setup repository
+# Setup repository in cache
 REPO_DIR=$(setup_tool_repo "$TOOL_NAME" "$REPO_URL")
 
 # Run installation/update

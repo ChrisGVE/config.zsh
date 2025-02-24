@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 
-# Set up environment
-set -f # Disable glob expansion
-ZSHENV="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/zshenv"
-export BASH_SOURCE_ZSHENV=$(grep -v '\[\[' "$ZSHENV")
-eval "$BASH_SOURCE_ZSHENV"
-set +f # Re-enable glob expansion
-
-# Set installation directory
-INSTALL_DATA_DIR="${XDG_DATA_HOME}/zsh/install"
+###############################################################################
+# Lolcat Installation Script
+#
+# Purpose:
+# Installs or updates lolcat (https://github.com/busyloop/lolcat)
+# A command that displays text with rainbow colors
+#
+# Dependencies:
+# - Ruby and development files
+# - Build tools
+###############################################################################
 
 # Source common functions
-source "${INSTALL_DATA_DIR}/common.sh"
+source "$(dirname "$0")/../common.sh"
 
 # Tool-specific configuration
 TOOL_NAME="lolcat"
@@ -19,12 +21,12 @@ REPO_URL="https://github.com/busyloop/lolcat"
 BINARY="lolcat"
 VERSION_CMD="--version"
 
-install_binary() {
-	sudo install -m755 binary "${INSTALL_BASE_DIR}/bin/" || error "Failed to install binary"
-}
+###############################################################################
+# Installation Functions
+###############################################################################
 
 install_deps() {
-	info "Installing lolcat build dependencies..."
+	info "Installing $TOOL_NAME build dependencies..."
 	package_install "ruby"
 	package_install "ruby-dev"
 	package_install "build-essential"
@@ -41,24 +43,32 @@ build_tool() {
 
 	cd "$build_dir" || error "Failed to enter build directory: $build_dir"
 
+	# Checkout appropriate version
 	if [ "$version_type" = "stable" ]; then
-		latest_version=$(get_target_version "$build_dir" "stable")
-		info "Checking out stable version: $latest_version"
+		local latest_version=$(get_target_version "$build_dir" "stable")
+		info "Building version: $latest_version"
 		git checkout "$latest_version" || error "Failed to checkout version $latest_version"
 	else
-		info "Using development version (HEAD)"
+		info "Building from latest HEAD"
 		git checkout master || error "Failed to checkout master branch"
 	fi
 
-	info "Building and installing lolcat..."
+	info "Building and installing $TOOL_NAME..."
+	# Build gem
 	gem build lolcat.gemspec || error "Failed to build gem"
-	sudo gem install lolcat-*.gem || error "Failed to install gem"
+
+	# Install gem
+	sudo gem install --no-user-install lolcat-*.gem || error "Failed to install gem"
 }
+
+###############################################################################
+# Main Installation Process
+###############################################################################
 
 # Install dependencies first
 install_deps
 
-# Setup repository
+# Setup repository in cache
 REPO_DIR=$(setup_tool_repo "$TOOL_NAME" "$REPO_URL")
 
 # Run installation/update

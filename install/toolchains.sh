@@ -4,75 +4,63 @@
 # Development Toolchains Management Script
 #
 # Purpose:
-# This script manages core development toolchains in a multi-user environment.
-# It handles installation, updates, and consistent configuration of:
-# - Python (via Miniconda3)
+# This script manages core development toolchains in a system-wide configuration.
+# It handles:
+# - Python (via Miniconda)
 # - Rust (via rustup)
 # - Go
 # - Zig
 # - Perl
 #
+# Each toolchain is installed globally in the system directory structure:
+# /opt/local/ or /usr/local/
+# ├── bin/              - Toolchain executables and symlinks
+# ├── lib/              - Libraries and dependencies
+# └── share/
+#     └── dev/
+#         └── toolchains/  - Toolchain-specific files
+#             ├── conda/   - Miniconda installation
+#             ├── rust/    - Rust toolchain
+#             ├── go/      - Go installation
+#             ├── zig/     - Zig compiler
+#             └── perl/    - Perl installation
+#
 # Features:
-# - Consistent installation paths under /opt/local or /usr/local
-# - Latest stable versions by default with option for HEAD
-# - Multi-user access with appropriate permissions
-# - Version tracking and smart updates
-# - Symlink management for PATH access
-#
-# Usage:
-# toolchains.sh <install_base_dir> [--force]
-#   install_base_dir: Base directory for installations (/opt/local or /usr/local)
-#   --force: Optional flag to force rebuild/reinstall of all toolchains
-#
-# Installation Process per Toolchain:
-# 1. Version check (current vs latest available)
-# 2. Download and verification
-# 3. Installation with multi-user permissions
-# 4. PATH management via symlinks
-# 5. Environment configuration
-#
-# Each toolchain installation includes:
-# - Binary installation in <base_dir>/<toolchain>
-# - Symlinks in <base_dir>/bin
-# - Shared permissions (775) for multi-user access
-# - Version tracking for update management
+# - System-wide installations
+# - Consistent permissions (root:staff, 775)
+# - Version tracking
+# - Proper PATH management via symlinks
 ###############################################################################
 
 set -euo pipefail
 
-# Status message functions
-info() { echo "[INFO] Toolchains: $1" >&2; }
-warn() { echo "[WARN] Toolchains: $1" >&2; }
-error() {
-	echo "[ERROR] Toolchains: $1"
-	exit 1
-}
+# Source common functions
+source "$(dirname "$0")/common.sh"
 
 # Track toolchain states for summary
 declare -A TOOLCHAIN_STATES
 declare -A TOOLCHAIN_VERSIONS
 
 ###############################################################################
-# Directory Management
+# Toolchain Installation Directory Management
 ###############################################################################
 
-# Setup directories for toolchain installation
-# Args:
-#   $1: Base installation directory
-setup_dirs() {
-	local base_dir="$1"
+setup_toolchain_dirs() {
+	# Create main toolchains directory
+	local toolchains_dir="$BASE_DIR/share/dev/toolchains"
+	ensure_dir_permissions "$toolchains_dir"
+
+	# Create individual toolchain directories
 	local dirs=(
-		"$base_dir/bin"
-		"$base_dir/share"
-		"$base_dir/lib"
-		"$base_dir/include"
+		"$toolchains_dir/conda"
+		"$toolchains_dir/rust"
+		"$toolchains_dir/go"
+		"$toolchains_dir/zig"
+		"$toolchains_dir/perl"
 	)
 
 	for dir in "${dirs[@]}"; do
-		if [ ! -d "$dir" ]; then
-			sudo mkdir -p "$dir"
-			sudo chmod 775 "$dir"
-		fi
+		ensure_dir_permissions "$dir"
 	done
 }
 
@@ -81,46 +69,31 @@ setup_dirs() {
 ###############################################################################
 
 install_miniconda() {
-	local base_dir="$1"
-	local force="$2"
-	local conda_dir="$base_dir/conda"
+	local conda_dir="$BASE_DIR/share/dev/toolchains/conda"
 	local conda_bin="$conda_dir/bin/conda"
-	local version_info="/tmp/conda_version.txt"
 
 	info "Processing Miniconda installation..."
 
-	# Check for force update or missing installation
-	if [ "$force" = "true" ] || [ ! -f "$conda_bin" ]; then
-		local tmp_dir=$(setup_temp_build_dir "miniconda")
-		local installer="$tmp_dir/miniconda.sh"
+	if [ ! -f "$conda_bin" ]; then
+		local tmp_installer="/tmp/miniconda.sh"
+		curl -L "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-$(uname -m).sh" -o "$tmp_installer"
 
-		# Download installer
-		curl -L "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-$(uname -m).sh" -o "$installer"
+		sudo bash "$tmp_installer" -b -p "$conda_dir"
+		rm -f "$tmp_installer"
 
-		# Prepare installation directory
-		ensure_dir_permissions "$conda_dir"
+		# Set permissions
+		ensure_dir_permissions "$conda_dir" "775" true
 
-		# Install Miniconda
-		sudo bash "$installer" -b -p "$conda_dir"
+		# Create symlinks
+		create_managed_symlink "$conda_bin" "$BASE_DIR/bin/conda"
+		create_managed_symlink "$conda_dir/bin/python" "$BASE_DIR/bin/python3"
 
-		# Set permissions recursively after installation
-		ensure_dir_permissions "$conda_dir" "775" true # true for recursive
-
-		# Create symlink
-		create_managed_symlink "$conda_bin" "$base_dir/bin/conda"
-
-		# Cleanup
-		cleanup_temp_dir "$tmp_dir"
-
-		# Record state
-		"$conda_bin" --version >"$version_info"
 		TOOLCHAIN_STATES["conda"]="installed"
-		TOOLCHAIN_VERSIONS["conda"]=$(cat "$version_info")
+		TOOLCHAIN_VERSIONS["conda"]=$("$conda_bin" --version | cut -d' ' -f2)
 	else
 		"$conda_bin" update -n base -c defaults conda -y
-		"$conda_bin" --version >"$version_info"
 		TOOLCHAIN_STATES["conda"]="updated"
-		TOOLCHAIN_VERSIONS["conda"]=$(cat "$version_info")
+		TOOLCHAIN_VERSIONS["conda"]=$("$conda_bin" --version | cut -d' ' -f2)
 	fi
 }
 
@@ -129,52 +102,34 @@ install_miniconda() {
 ###############################################################################
 
 install_rust() {
-	set -x # Enable command tracing
-	local base_dir="$1"
-	local force="$2"
-	local rust_dir="$base_dir/rust"
+	local rust_dir="$BASE_DIR/share/dev/toolchains/rust"
 
 	info "Processing Rust toolchain..."
-	info "Using rust_dir: $rust_dir"
 
-	if [ "$force" = "true" ] || ! command -v rustup >/dev/null 2>&1; then
-		local tmp_dir=$(setup_temp_build_dir "rust")
-		local installer="$tmp_dir/rustup-init.sh"
+	if ! command -v rustup >/dev/null 2>&1; then
+		# Create initial required directories
+		ensure_dir_permissions "$rust_dir/rustup"
+		ensure_dir_permissions "$rust_dir/cargo"
 
-		info "Creating directories..."
-		ls -la "$base_dir" # Check base directory permissions
+		# Download and run rustup-init with proper permissions
+		local tmp_installer="/tmp/rustup-init.sh"
+		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o "$tmp_installer"
 
-		# Create all required directories with verbose output
-		for dir in "$rust_dir" "$rust_dir/rustup" "$rust_dir/cargo" "$rust_dir/rustup/tmp" "$rust_dir/rustup/downloads" "$rust_dir/rustup/settings"; do
-			info "Creating and setting permissions for: $dir"
-			ensure_dir_permissions "$dir"
-			ls -la "$dir" # Verify permissions
-		done
+		# Initialize Rust installation
+		sudo -E env \
+			"RUSTUP_HOME=$rust_dir/rustup" \
+			"CARGO_HOME=$rust_dir/cargo" \
+			bash "$tmp_installer" -y --no-modify-path
 
-		info "Downloading rustup installer..."
-		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o "$installer"
-		chmod +x "$installer"
+		rm -f "$tmp_installer"
 
-		info "Creating initial rustup settings..."
-		echo '{}' | sudo tee "$rust_dir/rustup/settings/settings.toml" >/dev/null
-
-		info "Setting up environment..."
-		export RUSTUP_HOME="$rust_dir/rustup"
-		export CARGO_HOME="$rust_dir/cargo"
-
-		info "Running installer with: RUSTUP_HOME=$RUSTUP_HOME CARGO_HOME=$CARGO_HOME"
-		sudo -E bash "$installer" --no-modify-path -y
-
-		info "Post-installation setup..."
+		# Fix permissions
 		ensure_dir_permissions "$rust_dir" "775" true
 
-		info "Creating symlinks..."
-		create_managed_symlink "$rust_dir/cargo/bin/cargo" "$base_dir/bin/cargo"
-		create_managed_symlink "$rust_dir/cargo/bin/rustc" "$base_dir/bin/rustc"
-		create_managed_symlink "$rust_dir/cargo/bin/rustup" "$base_dir/bin/rustup"
-
-		cleanup_temp_dir "$tmp_dir"
-		set +x # Disable command tracing
+		# Create symlinks
+		create_managed_symlink "$rust_dir/cargo/bin/cargo" "$BASE_DIR/bin/cargo"
+		create_managed_symlink "$rust_dir/cargo/bin/rustc" "$BASE_DIR/bin/rustc"
+		create_managed_symlink "$rust_dir/cargo/bin/rustup" "$BASE_DIR/bin/rustup"
 
 		TOOLCHAIN_STATES["rust"]="installed"
 		TOOLCHAIN_VERSIONS["rust"]=$("$rust_dir/cargo/bin/rustc" --version | cut -d' ' -f2)
@@ -190,49 +145,36 @@ install_rust() {
 ###############################################################################
 
 install_go() {
-	local base_dir="$1"
-	local force="$2"
-	local go_dir="$base_dir/go"
+	local go_dir="$BASE_DIR/share/dev/toolchains/go"
 
 	info "Processing Go toolchain..."
 
-	# Get latest version information
+	# Get latest version
 	local version=$(curl -s https://go.dev/dl/?mode=json |
-		grep -o '"version": "go[0-9.]*"' |
-		head -1 |
+		grep -o '"version": "go[0-9.]*"' | head -1 |
 		grep -o '[0-9.]*')
 
-	if [ "$force" = "true" ] ||
-		[ ! -d "$go_dir" ] ||
+	if [ ! -d "$go_dir" ] ||
 		[ "$(go version 2>/dev/null | grep -o 'go[0-9.]*' | grep -o '[0-9.]*')" != "$version" ]; then
 
-		local tmp_dir=$(setup_temp_build_dir "go")
-		local archive="$tmp_dir/go.tar.gz"
-
-		# Determine architecture
 		local arch="$(uname -m)"
 		[ "$arch" = "x86_64" ] && arch="amd64"
 		[ "$arch" = "aarch64" ] && arch="arm64"
 
-		# Download Go
-		curl -L "https://go.dev/dl/go${version}.linux-${arch}.tar.gz" -o "$archive"
+		# Download and install Go
+		local tmp_archive="/tmp/go.tar.gz"
+		curl -L "https://go.dev/dl/go${version}.linux-${arch}.tar.gz" -o "$tmp_archive"
 
-		# Prepare directory
-		ensure_dir_permissions "$go_dir"
-
-		# Extract Go
 		sudo rm -rf "$go_dir"
-		sudo tar -C "$base_dir" -xzf "$archive"
+		sudo tar -C "$(dirname "$go_dir")" -xzf "$tmp_archive"
+		rm -f "$tmp_archive"
 
 		# Set permissions
 		ensure_dir_permissions "$go_dir" "775" true
 
 		# Create symlinks
-		create_managed_symlink "$go_dir/bin/go" "$base_dir/bin/go"
-		create_managed_symlink "$go_dir/bin/gofmt" "$base_dir/bin/gofmt"
-
-		# Cleanup
-		cleanup_temp_dir "$tmp_dir"
+		create_managed_symlink "$go_dir/bin/go" "$BASE_DIR/bin/go"
+		create_managed_symlink "$go_dir/bin/gofmt" "$BASE_DIR/bin/gofmt"
 
 		TOOLCHAIN_STATES["go"]="installed"
 		TOOLCHAIN_VERSIONS["go"]="$version"
@@ -247,46 +189,34 @@ install_go() {
 ###############################################################################
 
 install_zig() {
-	local base_dir="$1"
-	local force="$2"
-	local zig_dir="$base_dir/zig"
+	local zig_dir="$BASE_DIR/share/dev/toolchains/zig"
 
 	info "Processing Zig toolchain..."
 
 	# Get latest version
 	local version=$(curl -s https://ziglang.org/download/index.json |
-		grep -o '"version": "[0-9.]*"' |
-		head -1 |
+		grep -o '"version": "[0-9.]*"' | head -1 |
 		grep -o '[0-9.]*')
 
-	if [ "$force" = "true" ] || [ ! -d "$zig_dir" ] || [ "$(zig version 2>/dev/null)" != "$version" ]; then
-		local tmp_dir=$(setup_temp_build_dir "zig")
-		local archive="$tmp_dir/zig.tar.xz"
-
-		# Determine architecture
+	if [ ! -d "$zig_dir" ] || [ "$(zig version 2>/dev/null)" != "$version" ]; then
 		local arch="$(uname -m)"
 		[ "$arch" = "x86_64" ] && arch="x86_64"
 		[ "$arch" = "aarch64" ] && arch="aarch64"
 
-		# Download Zig
-		curl -L "https://ziglang.org/download/$version/zig-linux-${arch}-$version.tar.xz" -o "$archive"
+		# Download and install Zig
+		local tmp_archive="/tmp/zig.tar.xz"
+		curl -L "https://ziglang.org/download/$version/zig-linux-${arch}-$version.tar.xz" -o "$tmp_archive"
 
-		# Prepare directory
-		ensure_dir_permissions "$zig_dir"
-
-		# Extract and install
 		sudo rm -rf "$zig_dir"
 		sudo mkdir -p "$zig_dir"
-		sudo tar -C "$zig_dir" --strip-components=1 -xJf "$archive"
+		sudo tar -C "$zig_dir" --strip-components=1 -xJf "$tmp_archive"
+		rm -f "$tmp_archive"
 
 		# Set permissions
 		ensure_dir_permissions "$zig_dir" "775" true
 
 		# Create symlink
-		create_managed_symlink "$zig_dir/zig" "$base_dir/bin/zig"
-
-		# Cleanup
-		cleanup_temp_dir "$tmp_dir"
+		create_managed_symlink "$zig_dir/zig" "$BASE_DIR/bin/zig"
 
 		TOOLCHAIN_STATES["zig"]="installed"
 		TOOLCHAIN_VERSIONS["zig"]="$version"
@@ -301,47 +231,39 @@ install_zig() {
 ###############################################################################
 
 install_perl() {
-	local base_dir="$1"
-	local force="$2"
-	local perl_dir="$base_dir/perl"
+	local perl_dir="$BASE_DIR/share/dev/toolchains/perl"
 
 	info "Processing Perl toolchain..."
 
 	# Get latest version
 	local version=$(curl -s https://www.perl.org/get.html |
-		grep -o 'perl-[0-9.]*\.tar\.gz' |
-		head -1 |
+		grep -o 'perl-[0-9.]*\.tar\.gz' | head -1 |
 		grep -o '[0-9.]*')
 
-	if [ "$force" = "true" ] || [ ! -d "$perl_dir" ] || [ "$(perl -v | grep -o '[0-9.]*' | head -1)" != "$version" ]; then
-		local tmp_dir=$(setup_temp_build_dir "perl")
-		local archive="$tmp_dir/perl.tar.gz"
+	if [ ! -d "$perl_dir" ] || [ "$(perl -v | grep -o '[0-9.]*' | head -1)" != "$version" ]; then
+		local tmp_dir="/tmp/perl-build"
+		mkdir -p "$tmp_dir"
 
-		# Download Perl
-		curl -L "https://www.cpan.org/src/5.0/perl-$version.tar.gz" -o "$archive"
-
-		# Extract and prepare for build
+		# Download and extract Perl
+		curl -L "https://www.cpan.org/src/5.0/perl-$version.tar.gz" -o "$tmp_dir/perl.tar.gz"
 		cd "$tmp_dir"
 		tar xzf "perl.tar.gz"
 		cd "perl-$version"
-
-		# Prepare installation directory
-		ensure_dir_permissions "$perl_dir"
 
 		# Configure and build
 		sudo ./Configure -des -Dprefix="$perl_dir"
 		sudo make
 		sudo make install
 
+		cd
+		rm -rf "$tmp_dir"
+
 		# Set permissions
 		ensure_dir_permissions "$perl_dir" "775" true
 
 		# Create symlinks
-		create_managed_symlink "$perl_dir/bin/perl" "$base_dir/bin/perl"
-		create_managed_symlink "$perl_dir/bin/cpan" "$base_dir/bin/cpan"
-
-		# Cleanup
-		cleanup_temp_dir "$tmp_dir"
+		create_managed_symlink "$perl_dir/bin/perl" "$BASE_DIR/bin/perl"
+		create_managed_symlink "$perl_dir/bin/cpan" "$BASE_DIR/bin/cpan"
 
 		TOOLCHAIN_STATES["perl"]="installed"
 		TOOLCHAIN_VERSIONS["perl"]="$version"
@@ -352,7 +274,7 @@ install_perl() {
 }
 
 ###############################################################################
-# Status Summary
+# Summary Report
 ###############################################################################
 
 print_summary() {
@@ -373,31 +295,19 @@ print_summary() {
 ###############################################################################
 
 main() {
-	if [ $# -lt 1 ]; then
-		error "Usage: $0 <install_base_dir> [--force]"
-	fi
+	info "Starting toolchain installations..."
 
-	local base_dir="$1"
-	local force="false"
-
-	if [ $# -eq 2 ] && [ "$2" = "--force" ]; then
-		force="true"
-		info "Force update mode enabled"
-	fi
-
-	info "Using installation base directory: $base_dir"
-
-	# Setup directory structure
-	setup_dirs "$base_dir"
+	# Set up directory structure
+	setup_toolchain_dirs
 
 	# Install all toolchains
-	install_miniconda "$base_dir" "$force"
-	install_rust "$base_dir" "$force"
-	install_go "$base_dir" "$force"
-	install_zig "$base_dir" "$force"
-	install_perl "$base_dir" "$force"
+	install_miniconda
+	install_rust
+	install_go
+	install_zig
+	install_perl
 
-	# Print summary
+	# Print installation summary
 	print_summary
 }
 

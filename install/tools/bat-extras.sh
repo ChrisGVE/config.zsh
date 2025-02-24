@@ -1,23 +1,32 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# FZF Installation Script
+# Bat-Extras Installation Script
 #
 # Purpose:
-# Installs or updates fzf (https://github.com/junegunn/fzf)
-# A command-line fuzzy finder
+# Installs or updates bat-extras (https://github.com/eth-p/bat-extras)
+# A collection of scripts that integrate with bat
 #
 # Dependencies:
-# - Go toolchain (automatically managed)
+# - bat (must be installed first)
+# - shfmt (for script modifications)
+#
+# Installed Scripts:
+# - batdiff (better git diff)
+# - batgrep (better grep)
+# - batman (better man)
+# - batpipe (better pager)
+# - batwatch (better watch)
+# and more...
 ###############################################################################
 
 # Source common functions
 source "$(dirname "$0")/../common.sh"
 
 # Tool-specific configuration
-TOOL_NAME="fzf"
-REPO_URL="https://github.com/junegunn/fzf"
-BINARY="fzf"
+TOOL_NAME="bat-extras"
+REPO_URL="https://github.com/eth-p/bat-extras"
+BINARY="batdiff" # Use one of the scripts for version checking
 VERSION_CMD="--version"
 
 ###############################################################################
@@ -25,8 +34,15 @@ VERSION_CMD="--version"
 ###############################################################################
 
 install_deps() {
-	info "Installing $TOOL_NAME build dependencies..."
-	# No additional dependencies beyond Go, which is managed by toolchains.sh
+	info "Installing $TOOL_NAME dependencies..."
+
+	# Check if bat is installed
+	if ! command -v bat >/dev/null 2>&1; then
+		error "bat must be installed first"
+	fi
+
+	# Install shfmt for script modifications
+	package_install "shfmt"
 }
 
 build_tool() {
@@ -51,18 +67,9 @@ build_tool() {
 	fi
 
 	info "Building $TOOL_NAME..."
-	make clean
-	make || error "Failed to build"
 
-	info "Installing $TOOL_NAME..."
-	# Install the binary
-	sudo install -m755 bin/fzf "$BASE_DIR/bin/" || error "Failed to install binary"
-
-	# Install shell completion and key bindings to system location for all users
-	sudo mkdir -p "$BASE_DIR/share/fzf"
-	sudo cp shell/*.zsh "$BASE_DIR/share/fzf/"
-	sudo cp shell/*.bash "$BASE_DIR/share/fzf/"
-	sudo cp shell/*.fish "$BASE_DIR/share/fzf/"
+	# Build and install to system directory
+	sudo ./build.sh --prefix="$BASE_DIR" --install || error "Failed to build and install"
 }
 
 ###############################################################################

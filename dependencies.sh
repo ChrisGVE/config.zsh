@@ -156,6 +156,7 @@ main() {
 	done
 
 	info "All tools processed successfully"
+	info "The user specific install can now be setup by running 'user-post-install.sh'"
 }
 
 # Execute main function

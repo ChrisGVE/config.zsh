@@ -1,23 +1,31 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# FZF Installation Script
+# Delta Installation Script
 #
 # Purpose:
-# Installs or updates fzf (https://github.com/junegunn/fzf)
-# A command-line fuzzy finder
+# Installs or updates delta (https://github.com/dandavison/delta)
+# A syntax-highlighting pager for git, diff, and grep output
 #
 # Dependencies:
-# - Go toolchain (automatically managed)
+# - Rust toolchain (automatically managed)
+# - Basic build tools (cmake, pkg-config)
+#
+# Post-Installation:
+# Configures git to use delta:
+# - core.pager = delta
+# - interactive.diffFilter = delta --color-only
+# - delta.navigate = true
+# - merge.conflictStyle = zdiff3
 ###############################################################################
 
 # Source common functions
 source "$(dirname "$0")/../common.sh"
 
 # Tool-specific configuration
-TOOL_NAME="fzf"
-REPO_URL="https://github.com/junegunn/fzf"
-BINARY="fzf"
+TOOL_NAME="delta"
+REPO_URL="https://github.com/dandavison/delta"
+BINARY="delta"
 VERSION_CMD="--version"
 
 ###############################################################################
@@ -26,7 +34,10 @@ VERSION_CMD="--version"
 
 install_deps() {
 	info "Installing $TOOL_NAME build dependencies..."
-	# No additional dependencies beyond Go, which is managed by toolchains.sh
+	# Basic build dependencies
+	package_install "cmake"
+	package_install "pkg-config"
+	package_install "libssl-dev"
 }
 
 build_tool() {
@@ -51,18 +62,31 @@ build_tool() {
 	fi
 
 	info "Building $TOOL_NAME..."
-	make clean
-	make || error "Failed to build"
+	# Configure build flags for Rust
+	configure_build_flags
+	export CARGO_BUILD_JOBS="${MAKE_FLAGS#-j}"
+
+	# Build with cargo
+	cargo build --release || error "Failed to build"
 
 	info "Installing $TOOL_NAME..."
-	# Install the binary
-	sudo install -m755 bin/fzf "$BASE_DIR/bin/" || error "Failed to install binary"
+	sudo install -m755 target/release/delta "$BASE_DIR/bin/" || error "Failed to install"
+}
 
-	# Install shell completion and key bindings to system location for all users
-	sudo mkdir -p "$BASE_DIR/share/fzf"
-	sudo cp shell/*.zsh "$BASE_DIR/share/fzf/"
-	sudo cp shell/*.bash "$BASE_DIR/share/fzf/"
-	sudo cp shell/*.fish "$BASE_DIR/share/fzf/"
+###############################################################################
+# Post-Installation Configuration
+###############################################################################
+
+configure_git() {
+	info "Configuring git to use delta..."
+
+	# Configure git globally
+	git config --global core.pager delta
+	git config --global interactive.diffFilter "delta --color-only"
+	git config --global delta.navigate true
+	git config --global merge.conflictStyle zdiff3
+
+	info "Git configuration complete"
 }
 
 ###############################################################################
@@ -77,3 +101,6 @@ REPO_DIR=$(setup_tool_repo "$TOOL_NAME" "$REPO_URL")
 
 # Run installation/update
 install_or_update_tool "$TOOL_NAME" "$BINARY" "$VERSION_CMD" "$REPO_DIR" "build_tool"
+
+# Configure git (this will be handled by the post command in tools.conf)
+# configure_git
