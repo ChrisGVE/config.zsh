@@ -183,11 +183,12 @@ compare_versions() {
 #   TOOL_VERSION_TYPE: stable|head|managed|none
 parse_tool_config() {
 	local tool_name="$1"
-	local config_line
+	local config_line=""
 
 	# Read tool configuration
 	if [ -f "$TOOLS_CONF" ]; then
-		config_line=$(grep "^$tool_name=" "$TOOLS_CONF" | cut -d= -f2-)
+		# Extract only the configuration part, ignoring comments
+		config_line=$(grep "^$tool_name=" "$TOOLS_CONF" | sed 's/#.*$//' | cut -d= -f2-)
 	else
 		warn "tools.conf not found at $TOOLS_CONF"
 	fi
@@ -199,13 +200,46 @@ parse_tool_config() {
 
 	# Parse version type - just take the first part before any comma
 	TOOL_VERSION_TYPE=$(echo "$config_line" | cut -d, -f1 | tr -d ' ')
+
+	# Parse config flag if present
+	if echo "$config_line" | grep -q "config"; then
+		TOOL_CONFIG="true"
+	else
+		TOOL_CONFIG="false"
+	fi
+
+	# Parse post command if present
+	TOOL_POST_COMMAND=""
+	if echo "$config_line" | grep -q "post="; then
+		TOOL_POST_COMMAND=$(echo "$config_line" | grep -o 'post="[^"]*"' | cut -d'"' -f2)
+	fi
+
+	# Log parsed configuration for debugging
+	info "Parsed tool config for $tool_name: type=$TOOL_VERSION_TYPE, config=$TOOL_CONFIG"
 }
 
 ###############################################################################
 # Repository Management
 ###############################################################################
 
-# Setup tool repository in cache
+# Configure Git to trust a repository directory
+# Args:
+#   $1: Repository directory
+configure_git_trust() {
+	local repo_dir="$1"
+
+	# Make sure the directory exists
+	if [ ! -d "$repo_dir" ]; then
+		return 1
+	fi
+
+	# Add directory to git safe.directory config
+	sudo git config --global --add safe.directory "$repo_dir"
+
+	return 0
+}
+
+# Setup tool repository in cache with proper trust settings
 # Args:
 #   $1: Tool name
 #   $2: Repository URL
@@ -221,9 +255,13 @@ setup_tool_repo() {
 		sudo -u root git clone "$repo_url" "$cache_dir" || error "Failed to clone repository"
 
 		# Configure Git to trust this directory
-		sudo git config --global --add safe.directory "$cache_dir"
+		configure_git_trust "$cache_dir"
 	else
 		info "Updating $tool_name repository..."
+
+		# Ensure git trusts this directory before operating on it
+		configure_git_trust "$cache_dir"
+
 		(cd "$cache_dir" && sudo -u root git fetch) || error "Failed to update repository"
 	fi
 
@@ -302,17 +340,22 @@ install_or_update_tool() {
 	local repo_dir="$4"
 	local build_func="$5"
 
-	# Parse tool configuration for version type only
+	# Parse tool configuration
 	parse_tool_config "$tool_name"
 
+	# Print the parsed configuration for debugging
+	info "Tool $tool_name configuration: version_type=$TOOL_VERSION_TYPE"
+
+	# Process based on version type
 	case "$TOOL_VERSION_TYPE" in
 	none)
-		info "Skipping $tool_name as configured"
+		info "Skipping $tool_name as configured (none)"
 		return 0
 		;;
 	managed)
-		info "Installing $tool_name via package manager"
+		info "Installing $tool_name via package manager (managed)"
 		package_install "$tool_name"
+		return $?
 		;;
 	stable | head)
 		if [ -x "$BASE_DIR/bin/$binary" ]; then
@@ -327,6 +370,3 @@ install_or_update_tool() {
 		;;
 	esac
 }
-
-# Export the PACKAGE_MANAGER variable for other scripts
-export PACKAGE_MANAGER
