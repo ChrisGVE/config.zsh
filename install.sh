@@ -94,6 +94,9 @@ install_configs() {
 	sudo cp "$source_dir/install/"*.sh "$config_dir/"
 	sudo cp -r "$source_dir/install/tools" "$config_dir/"
 
+	# Copy dependencies.sh from source directory root
+	sudo cp "$source_dir/dependencies.sh" "$config_dir/"
+
 	# Set permissions
 	sudo chown -R root:staff "$config_dir"
 	sudo chmod -R 775 "$config_dir"
