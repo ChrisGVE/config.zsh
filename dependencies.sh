@@ -88,6 +88,52 @@ update_package_manager() {
 }
 
 ###############################################################################
+# Package Manager Operations
+###############################################################################
+
+# Install a package using the appropriate package manager
+package_install() {
+	local package_name="$1"
+	info "Installing package: $package_name"
+
+	case "$PACKAGE_MANAGER" in
+	apt)
+		sudo apt install -y "$package_name"
+		;;
+	dnf)
+		sudo dnf install -y "$package_name"
+		;;
+	pacman)
+		sudo pacman -S --noconfirm "$package_name"
+		;;
+	*)
+		error "Unsupported package manager: $PACKAGE_MANAGER"
+		;;
+	esac
+}
+
+# Get the current package manager
+get_package_manager() {
+	echo "$PACKAGE_MANAGER"
+}
+
+###############################################################################
+# Version Management
+###############################################################################
+
+# Get the latest stable version from a git repository
+get_target_version() {
+	local repo_dir="$1"
+	local type="$2"
+
+	if [ "$type" != "stable" ]; then
+		return 0
+	fi
+
+	(cd "$repo_dir" && git fetch --tags && git tag -l | grep -E '^v?[0-9]+(\.[0-9]+)*$' | sort -V | tail -n1)
+}
+
+###############################################################################
 # Installation Directory Management
 ###############################################################################
 
@@ -135,14 +181,14 @@ main() {
 
 	# 3. Ensure development toolchains are installed and up to date
 	info "Setting up development toolchains..."
-	bash "${SCRIPT_DIR}/install/toolchains.sh" "$INSTALL_DIR" || error "Toolchain setup failed"
+	bash "${SCRIPT_DIR}/toolchains.sh" "$INSTALL_DIR" || error "Toolchain setup failed"
 
 	# 4. Source common functions for tool installation
 	export INSTALL_BASE_DIR="$INSTALL_DIR" # Export for all child scripts
-	source "${SCRIPT_DIR}/install/common.sh" || error "Failed to source common functions"
+	source "${SCRIPT_DIR}/common.sh" || error "Failed to source common functions"
 
 	# 5. Process each tool installation script
-	local TOOLS_DIR="${SCRIPT_DIR}/install/tools"
+	local TOOLS_DIR="${SCRIPT_DIR}/tools"
 	if [ ! -d "$TOOLS_DIR" ]; then
 		error "Tools directory not found: $TOOLS_DIR"
 	fi
@@ -151,7 +197,7 @@ main() {
 	for tool in "${TOOLS_DIR}"/*.sh; do
 		if [ -f "$tool" ]; then
 			info "Processing: $(basename "$tool")"
-			bash "$tool" || error "Failed to process $(basename "$tool")"
+			bash "$tool" || warn "Failed to process $(basename "$tool"), continuing..."
 		fi
 	done
 

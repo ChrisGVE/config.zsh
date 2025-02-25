@@ -95,7 +95,11 @@ install_configs() {
 	sudo cp -r "$source_dir/install/tools" "$config_dir/"
 
 	# Copy dependencies.sh from source directory root
-	sudo cp "$source_dir/dependencies.sh" "$config_dir/"
+	if [ -f "$source_dir/dependencies.sh" ]; then
+		sudo cp "$source_dir/dependencies.sh" "$config_dir/"
+	else
+		error "dependencies.sh not found in $source_dir"
+	fi
 
 	# Set permissions
 	sudo chown -R root:staff "$config_dir"
@@ -117,8 +121,9 @@ create_dependencies_command() {
 	# Create the wrapper script
 	cat <<EOF | sudo tee "$script_path" >/dev/null
 #!/usr/bin/env bash
-source "$base_dir/etc/dev/common.sh"
-exec "$base_dir/etc/dev/dependencies.sh" "\$@"
+# Do not source common.sh here to avoid potential circular dependencies
+# Use bash instead of exec to allow for better error handling
+bash "$base_dir/etc/dev/dependencies.sh" "\$@"
 EOF
 
 	sudo chown root:staff "$script_path"
