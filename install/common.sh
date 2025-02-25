@@ -50,6 +50,60 @@ CONFIG_DIR="$BASE_DIR/etc/dev"
 TOOLS_CONF="$CONFIG_DIR/tools.conf"
 
 ###############################################################################
+# Package Manager Operations
+###############################################################################
+
+# Install a package using the appropriate package manager
+package_install() {
+	local package_name="$1"
+	info "Installing package: $package_name"
+
+	# Detect package manager if not already set
+	if [ -z "${PACKAGE_MANAGER:-}" ]; then
+		if [ -f /etc/os-release ]; then
+			. /etc/os-release
+			if [ "$ID" = "debian" ] || [ "$ID" = "ubuntu" ] || [ "$ID" = "raspbian" ]; then
+				PACKAGE_MANAGER="apt"
+			elif [ "$ID" = "fedora" ] || [ "$ID" = "rhel" ] || [ "$ID" = "centos" ]; then
+				PACKAGE_MANAGER="dnf"
+			elif [ "$ID" = "arch" ] || [ "$ID" = "manjaro" ]; then
+				PACKAGE_MANAGER="pacman"
+			elif command -v apt >/dev/null 2>&1; then
+				PACKAGE_MANAGER="apt"
+			elif command -v dnf >/dev/null 2>&1; then
+				PACKAGE_MANAGER="dnf"
+			elif command -v pacman >/dev/null 2>&1; then
+				PACKAGE_MANAGER="pacman"
+			else
+				error "Unsupported distribution for package installation"
+			fi
+		else
+			error "Cannot determine distribution type for package installation"
+		fi
+	fi
+
+	case "$PACKAGE_MANAGER" in
+	apt)
+		sudo apt install -y "$package_name"
+		;;
+	dnf)
+		sudo dnf install -y "$package_name"
+		;;
+	pacman)
+		sudo pacman -S --noconfirm "$package_name"
+		;;
+	*)
+		error "Unsupported package manager: $PACKAGE_MANAGER"
+		;;
+	esac
+}
+
+# Get the current package manager
+get_package_manager() {
+	echo "${PACKAGE_MANAGER:-unknown}"
+}
+
+###############################################################################
 # Permission Management
 ###############################################################################
 
@@ -134,6 +188,8 @@ parse_tool_config() {
 	# Read tool configuration
 	if [ -f "$TOOLS_CONF" ]; then
 		config_line=$(grep "^$tool_name=" "$TOOLS_CONF" | cut -d= -f2-)
+	else
+		warn "tools.conf not found at $TOOLS_CONF"
 	fi
 
 	if [ -z "${config_line:-}" ]; then
@@ -163,6 +219,9 @@ setup_tool_repo() {
 	if [ ! -d "$cache_dir/.git" ]; then
 		info "Cloning $tool_name repository..."
 		sudo -u root git clone "$repo_url" "$cache_dir" || error "Failed to clone repository"
+
+		# Configure Git to trust this directory
+		sudo git config --global --add safe.directory "$cache_dir"
 	else
 		info "Updating $tool_name repository..."
 		(cd "$cache_dir" && sudo -u root git fetch) || error "Failed to update repository"
@@ -172,12 +231,39 @@ setup_tool_repo() {
 }
 
 ###############################################################################
+# Version Management
+###############################################################################
+
+# Get the target version for a tool
+# Args:
+#   $1: Repository directory
+#   $2: Version type (stable|head)
+get_target_version() {
+	local repo_dir="$1"
+	local version_type="$2"
+
+	if [ "$version_type" != "stable" ]; then
+		echo ""
+		return 0
+	fi
+
+	# Get the latest tag that looks like a version number
+	(cd "$repo_dir" && sudo git fetch --tags && sudo git tag -l | grep -E '^v?[0-9]+(\.[0-9]+)*$' | sort -V | tail -n1)
+}
+
+###############################################################################
 # Build Management
 ###############################################################################
 
 # Configure build flags
 configure_build_flags() {
-	local cpu_count=$(nproc)
+	local cpu_count
+	if command -v nproc >/dev/null 2>&1; then
+		cpu_count=$(nproc)
+	else
+		cpu_count=2 # Default to 2 if nproc is not available
+	fi
+
 	# Use one less than available cores to prevent system lockup
 	export MAKE_FLAGS="-j$((cpu_count - 1))"
 }
@@ -192,7 +278,7 @@ configure_build_flags() {
 execute_post_install() {
 	local tool_name="$1"
 
-	if [ -n "$TOOL_POST_COMMAND" ]; then
+	if [ -n "${TOOL_POST_COMMAND:-}" ]; then
 		info "Executing post-installation commands for $tool_name"
 		eval "$TOOL_POST_COMMAND" || warn "Post-installation command failed"
 	fi
@@ -241,3 +327,6 @@ install_or_update_tool() {
 		;;
 	esac
 }
+
+# Export the PACKAGE_MANAGER variable for other scripts
+export PACKAGE_MANAGER

@@ -171,10 +171,12 @@ install_rust() {
 			warn "Rustup binary not found at $rust_dir/cargo/bin/rustup"
 		fi
 
-		# Verify installation
+		# Verify installation and capture version
 		if [ -f "$rust_dir/cargo/bin/rustc" ]; then
+			local rust_version
+			rust_version=$("$rust_dir/cargo/bin/rustc" --version | sed -E 's/rustc ([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
 			TOOLCHAIN_STATES["rust"]="installed"
-			TOOLCHAIN_VERSIONS["rust"]=$("$rust_dir/cargo/bin/rustc" --version | cut -d' ' -f2)
+			TOOLCHAIN_VERSIONS["rust"]="$rust_version"
 		else
 			TOOLCHAIN_STATES["rust"]="failed"
 			TOOLCHAIN_VERSIONS["rust"]="unknown"
@@ -186,8 +188,10 @@ install_rust() {
 		sudo -E env RUSTUP_HOME="$rust_dir/rustup" CARGO_HOME="$rust_dir/cargo" \
 			"$rust_dir/cargo/bin/rustup" update
 
+		local rust_version
+		rust_version=$("$rust_dir/cargo/bin/rustc" --version | sed -E 's/rustc ([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
 		TOOLCHAIN_STATES["rust"]="updated"
-		TOOLCHAIN_VERSIONS["rust"]=$("$rust_dir/cargo/bin/rustc" --version | cut -d' ' -f2)
+		TOOLCHAIN_VERSIONS["rust"]="$rust_version"
 	fi
 }
 
