@@ -126,20 +126,38 @@ install_rust() {
 
 	info "Processing Rust toolchain..."
 
-	# Check if rustup is already installed
-	if ! command -v rustup >/dev/null 2>&1 || [ ! -d "$rust_dir" ]; then
-		# Create initial required directories with proper permissions
-		sudo mkdir -p "$rust_dir/rustup"
-		sudo mkdir -p "$rust_dir/cargo"
-		sudo chown -R root:staff "$rust_dir"
-		sudo chmod -R 775 "$rust_dir"
+	# Create initial required directories with proper permissions
+	sudo mkdir -p "$rust_dir/rustup"
+	sudo mkdir -p "$rust_dir/cargo"
+	sudo chown -R root:staff "$rust_dir"
+	sudo chmod -R 775 "$rust_dir"
+
+	# Check if rustup is already installed and working
+	local rustup_exists=0
+	if [ -f "$rust_dir/cargo/bin/rustup" ] && [ -x "$rust_dir/cargo/bin/rustup" ]; then
+		rustup_exists=1
+	fi
+
+	if [ "$rustup_exists" -eq 0 ]; then
+		info "Installing Rust toolchain..."
 
 		# Download rustup installer
 		local tmp_installer="/tmp/rustup-init.sh"
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o "$tmp_installer"
 		chmod +x "$tmp_installer"
 
+		# Clear any existing installation that might be incomplete
+		if [ -d "$rust_dir" ]; then
+			info "Removing existing incomplete Rust installation..."
+			sudo rm -rf "$rust_dir"
+			sudo mkdir -p "$rust_dir/rustup"
+			sudo mkdir -p "$rust_dir/cargo"
+			sudo chown -R root:staff "$rust_dir"
+			sudo chmod -R 775 "$rust_dir"
+		fi
+
 		# Initialize Rust installation with correct permissions
+		info "Running rustup installer..."
 		(cd /tmp &&
 			sudo -E env \
 				RUSTUP_HOME="$rust_dir/rustup" \
@@ -151,51 +169,38 @@ install_rust() {
 		# Fix permissions again after installation
 		sudo chown -R root:staff "$rust_dir"
 		sudo chmod -R 775 "$rust_dir"
-
-		# Create symlinks only if the binaries exist
-		if [ -f "$rust_dir/cargo/bin/cargo" ]; then
-			create_managed_symlink "$rust_dir/cargo/bin/cargo" "$BASE_DIR/bin/cargo"
-		else
-			warn "Cargo binary not found at $rust_dir/cargo/bin/cargo"
-		fi
-
-		if [ -f "$rust_dir/cargo/bin/rustc" ]; then
-			create_managed_symlink "$rust_dir/cargo/bin/rustc" "$BASE_DIR/bin/rustc"
-		else
-			warn "Rustc binary not found at $rust_dir/cargo/bin/rustc"
-		fi
-
-		if [ -f "$rust_dir/cargo/bin/rustup" ]; then
-			create_managed_symlink "$rust_dir/cargo/bin/rustup" "$BASE_DIR/bin/rustup"
-		else
-			warn "Rustup binary not found at $rust_dir/cargo/bin/rustup"
-		fi
-
-		# Verify installation and capture version with enhanced method
-		if [ -f "$rust_dir/cargo/bin/rustc" ]; then
-			local rust_version
-			rust_version=$(RUSTUP_HOME="$rust_dir/rustup" CARGO_HOME="$rust_dir/cargo" "$rust_dir/cargo/bin/rustc" --version | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+")
-
-			if [ -z "$rust_version" ]; then
-				# Fallback method if regex fails
-				rust_version=$(RUSTUP_HOME="$rust_dir/rustup" CARGO_HOME="$rust_dir/cargo" "$rust_dir/cargo/bin/rustc" --version | awk '{print $2}')
-			fi
-
-			TOOLCHAIN_STATES["rust"]="installed"
-			TOOLCHAIN_VERSIONS["rust"]="$rust_version"
-		else
-			TOOLCHAIN_STATES["rust"]="failed"
-			TOOLCHAIN_VERSIONS["rust"]="unknown"
-			warn "Rust installation may not have completed successfully"
-		fi
 	else
 		# Update existing installation
 		info "Updating existing Rust installation..."
-		sudo -E env RUSTUP_HOME="$rust_dir/rustup" CARGO_HOME="$rust_dir/cargo" \
-			"$rust_dir/cargo/bin/rustup" update
+		(cd /tmp &&
+			sudo -E env \
+				RUSTUP_HOME="$rust_dir/rustup" \
+				CARGO_HOME="$rust_dir/cargo" \
+				"$rust_dir/cargo/bin/rustup" update)
+	fi
 
-		# Capture version with enhanced method
-		local rust_version
+	# Create symlinks only if the binaries exist
+	if [ -f "$rust_dir/cargo/bin/cargo" ]; then
+		create_managed_symlink "$rust_dir/cargo/bin/cargo" "$BASE_DIR/bin/cargo"
+	else
+		warn "Cargo binary not found at $rust_dir/cargo/bin/cargo"
+	fi
+
+	if [ -f "$rust_dir/cargo/bin/rustc" ]; then
+		create_managed_symlink "$rust_dir/cargo/bin/rustc" "$BASE_DIR/bin/rustc"
+	else
+		warn "Rustc binary not found at $rust_dir/cargo/bin/rustc"
+	fi
+
+	if [ -f "$rust_dir/cargo/bin/rustup" ]; then
+		create_managed_symlink "$rust_dir/cargo/bin/rustup" "$BASE_DIR/bin/rustup"
+	else
+		warn "Rustup binary not found at $rust_dir/cargo/bin/rustup"
+	fi
+
+	# Capture version with more reliable method
+	local rust_version=""
+	if [ -f "$rust_dir/cargo/bin/rustc" ]; then
 		rust_version=$(RUSTUP_HOME="$rust_dir/rustup" CARGO_HOME="$rust_dir/cargo" "$rust_dir/cargo/bin/rustc" --version | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+")
 
 		if [ -z "$rust_version" ]; then
@@ -203,8 +208,13 @@ install_rust() {
 			rust_version=$(RUSTUP_HOME="$rust_dir/rustup" CARGO_HOME="$rust_dir/cargo" "$rust_dir/cargo/bin/rustc" --version | awk '{print $2}')
 		fi
 
-		TOOLCHAIN_STATES["rust"]="updated"
+		TOOLCHAIN_STATES["rust"]="installed"
 		TOOLCHAIN_VERSIONS["rust"]="$rust_version"
+		info "Rust version detected: $rust_version"
+	else
+		TOOLCHAIN_STATES["rust"]="failed"
+		TOOLCHAIN_VERSIONS["rust"]="unknown"
+		warn "Rust installation may not have completed successfully"
 	fi
 }
 

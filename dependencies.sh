@@ -166,6 +166,19 @@ get_install_dir() {
 }
 
 ###############################################################################
+# Repository management
+###############################################################################
+
+# Verify and fix repository trust issues
+verify_git_repos() {
+	info "Verifying git repository trust settings..."
+	for repo_dir in $(find "$CACHE_DIR" -type d -name ".git" -exec dirname {} \;); do
+		info "Ensuring Git trust for repository: $repo_dir"
+		sudo git config --global --add safe.directory "$repo_dir"
+	done
+}
+
+###############################################################################
 # Main Installation Process
 ###############################################################################
 
@@ -187,7 +200,10 @@ main() {
 	export INSTALL_BASE_DIR="$INSTALL_DIR" # Export for all child scripts
 	source "${SCRIPT_DIR}/common.sh" || error "Failed to source common functions"
 
-	# 5. Process each tool installation script
+	# 5. Verify git repositories trust
+	verify_git_repos
+
+	# 6. Process each tool installation script
 	local TOOLS_DIR="${SCRIPT_DIR}/tools"
 	if [ ! -d "$TOOLS_DIR" ]; then
 		error "Tools directory not found: $TOOLS_DIR"

@@ -234,12 +234,16 @@ configure_git_trust() {
 	fi
 
 	# Add directory to git safe.directory config
-	sudo git config --global --add safe.directory "$repo_dir"
+	# Use sudo -E to preserve environment variables
+	sudo -E git config --global --add safe.directory "$repo_dir"
+
+	# Verify trust was added
+	info "Added Git trust for repository: $repo_dir"
 
 	return 0
 }
 
-# Setup tool repository in cache with proper trust settings
+# Setup tool repository in cache
 # Args:
 #   $1: Tool name
 #   $2: Repository URL
@@ -253,17 +257,15 @@ setup_tool_repo() {
 	if [ ! -d "$cache_dir/.git" ]; then
 		info "Cloning $tool_name repository..."
 		sudo -u root git clone "$repo_url" "$cache_dir" || error "Failed to clone repository"
-
-		# Configure Git to trust this directory
-		configure_git_trust "$cache_dir"
 	else
 		info "Updating $tool_name repository..."
-
-		# Ensure git trusts this directory before operating on it
+		# Make sure git trusts this directory
 		configure_git_trust "$cache_dir"
-
 		(cd "$cache_dir" && sudo -u root git fetch) || error "Failed to update repository"
 	fi
+
+	# Always ensure the repository is trusted after operations
+	configure_git_trust "$cache_dir"
 
 	echo "$cache_dir"
 }
