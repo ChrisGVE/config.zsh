@@ -88,52 +88,6 @@ update_package_manager() {
 }
 
 ###############################################################################
-# Package Manager Operations
-###############################################################################
-
-# Install a package using the appropriate package manager
-package_install() {
-	local package_name="$1"
-	info "Installing package: $package_name"
-
-	case "$PACKAGE_MANAGER" in
-	apt)
-		sudo apt install -y "$package_name"
-		;;
-	dnf)
-		sudo dnf install -y "$package_name"
-		;;
-	pacman)
-		sudo pacman -S --noconfirm "$package_name"
-		;;
-	*)
-		error "Unsupported package manager: $PACKAGE_MANAGER"
-		;;
-	esac
-}
-
-# Get the current package manager
-get_package_manager() {
-	echo "$PACKAGE_MANAGER"
-}
-
-###############################################################################
-# Version Management
-###############################################################################
-
-# Get the latest stable version from a git repository
-get_target_version() {
-	local repo_dir="$1"
-	local type="$2"
-
-	if [ "$type" != "stable" ]; then
-		return 0
-	fi
-
-	(cd "$repo_dir" && git fetch --tags && git tag -l | grep -E '^v?[0-9]+(\.[0-9]+)*$' | sort -V | tail -n1)
-}
-
-###############################################################################
 # Installation Directory Management
 ###############################################################################
 
@@ -166,7 +120,7 @@ get_install_dir() {
 }
 
 ###############################################################################
-# Repository management
+# Git Repository Trust and Permissions
 ###############################################################################
 
 # Verify and fix repository trust and permission issues
@@ -174,12 +128,13 @@ verify_git_repos() {
 	info "Verifying git repository trust and permissions..."
 
 	# First, make sure the cache directory exists with proper permissions
-	sudo mkdir -p "$CACHE_DIR"
-	sudo chown root:staff "$CACHE_DIR"
-	sudo chmod 775 "$CACHE_DIR"
+	local cache_dir="$INSTALL_DIR/share/dev/cache"
+	sudo mkdir -p "$cache_dir"
+	sudo chown root:staff "$cache_dir"
+	sudo chmod 775 "$cache_dir"
 
 	# Then fix each repository
-	for repo_dir in $(find "$CACHE_DIR" -type d -name ".git" -exec dirname {} \;); do
+	for repo_dir in $(find "$cache_dir" -type d -name ".git" -exec dirname {} \; 2>/dev/null || echo ""); do
 		info "Ensuring Git trust for repository: $repo_dir"
 		sudo git config --global --add safe.directory "$repo_dir"
 
@@ -187,6 +142,11 @@ verify_git_repos() {
 		info "Fixing permissions for repository: $repo_dir"
 		sudo chown -R root:staff "$repo_dir"
 		sudo chmod -R 775 "$repo_dir"
+
+		# Remove any lock files
+		if [ -f "$repo_dir/.git/index.lock" ]; then
+			sudo rm -f "$repo_dir/.git/index.lock"
+		fi
 	done
 }
 
@@ -212,7 +172,7 @@ main() {
 	export INSTALL_BASE_DIR="$INSTALL_DIR" # Export for all child scripts
 	source "${SCRIPT_DIR}/common.sh" || error "Failed to source common functions"
 
-	# 5. Verify git repositories trust
+	# 5. Verify and fix git repository trust and permissions
 	verify_git_repos
 
 	# 6. Process each tool installation script
