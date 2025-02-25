@@ -291,6 +291,15 @@ git_checkout_safe() {
 	# Ensure the repository is trusted
 	configure_git_trust "$repo_dir"
 
+	# Remove any existing lock files
+	if [ -f "$repo_dir/.git/index.lock" ]; then
+		sudo rm -f "$repo_dir/.git/index.lock"
+	fi
+
+	# Fix permissions
+	sudo chown -R root:staff "$repo_dir"
+	sudo chmod -R g+w "$repo_dir/.git"
+
 	# Use sudo for the git operation
 	(cd "$repo_dir" && sudo -u root git checkout "$checkout_target")
 	return $?

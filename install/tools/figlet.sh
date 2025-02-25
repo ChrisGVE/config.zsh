@@ -42,7 +42,7 @@ build_tool() {
 
 	# Figlet doesn't use version tags, use latest commit on master
 	info "Using latest version from master branch"
-	git checkout master || error "Failed to checkout master branch"
+	sudo -u root git checkout master || error "Failed to checkout master branch"
 
 	info "Building $TOOL_NAME..."
 	# Configure build flags

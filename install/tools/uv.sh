@@ -46,10 +46,10 @@ build_tool() {
 	if [ "$version_type" = "stable" ]; then
 		local latest_version=$(get_target_version "$build_dir" "stable")
 		info "Building version: $latest_version"
-		git checkout "$latest_version" || error "Failed to checkout version $latest_version"
+		sudo -u root git checkout "$latest_version" || error "Failed to checkout version $latest_version"
 	else
 		info "Building from latest HEAD"
-		git checkout master || error "Failed to checkout master branch"
+		sudo -u root git checkout master || error "Failed to checkout master branch"
 	fi
 
 	info "Building $TOOL_NAME..."
