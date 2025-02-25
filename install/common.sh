@@ -252,15 +252,25 @@ setup_tool_repo() {
 	local repo_url="$2"
 	local cache_dir="$CACHE_DIR/$tool_name"
 
+	# Ensure the directories exist with proper permissions
 	ensure_dir_permissions "$cache_dir"
+
+	# Ensure the cache directory and its contents are owned by root:staff with write permissions
+	sudo chown -R root:staff "$cache_dir"
+	sudo chmod -R 775 "$cache_dir"
 
 	if [ ! -d "$cache_dir/.git" ]; then
 		info "Cloning $tool_name repository..."
+		# Clone as sudo but ensure proper permissions afterward
 		sudo -u root git clone "$repo_url" "$cache_dir" || error "Failed to clone repository"
+		sudo chown -R root:staff "$cache_dir"
+		sudo chmod -R 775 "$cache_dir"
 	else
 		info "Updating $tool_name repository..."
 		# Make sure git trusts this directory
 		configure_git_trust "$cache_dir"
+
+		# Use sudo for git operations to avoid permission issues
 		(cd "$cache_dir" && sudo -u root git fetch) || error "Failed to update repository"
 	fi
 
@@ -268,6 +278,22 @@ setup_tool_repo() {
 	configure_git_trust "$cache_dir"
 
 	echo "$cache_dir"
+}
+
+# Perform a git checkout with proper permissions
+# Args:
+#   $1: Repository directory
+#   $2: Branch or tag to checkout
+git_checkout_safe() {
+	local repo_dir="$1"
+	local checkout_target="$2"
+
+	# Ensure the repository is trusted
+	configure_git_trust "$repo_dir"
+
+	# Use sudo for the git operation
+	(cd "$repo_dir" && sudo -u root git checkout "$checkout_target")
+	return $?
 }
 
 ###############################################################################

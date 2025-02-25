@@ -169,12 +169,24 @@ get_install_dir() {
 # Repository management
 ###############################################################################
 
-# Verify and fix repository trust issues
+# Verify and fix repository trust and permission issues
 verify_git_repos() {
-	info "Verifying git repository trust settings..."
+	info "Verifying git repository trust and permissions..."
+
+	# First, make sure the cache directory exists with proper permissions
+	sudo mkdir -p "$CACHE_DIR"
+	sudo chown root:staff "$CACHE_DIR"
+	sudo chmod 775 "$CACHE_DIR"
+
+	# Then fix each repository
 	for repo_dir in $(find "$CACHE_DIR" -type d -name ".git" -exec dirname {} \;); do
 		info "Ensuring Git trust for repository: $repo_dir"
 		sudo git config --global --add safe.directory "$repo_dir"
+
+		# Fix permissions on this repository
+		info "Fixing permissions for repository: $repo_dir"
+		sudo chown -R root:staff "$repo_dir"
+		sudo chmod -R 775 "$repo_dir"
 	done
 }
 
