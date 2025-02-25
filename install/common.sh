@@ -181,6 +181,8 @@ compare_versions() {
 #   $1: Tool name
 # Sets global variables:
 #   TOOL_VERSION_TYPE: stable|head|managed|none
+#   TOOL_CONFIG: true|false
+#   TOOL_POST_COMMAND: Command to run after installation
 parse_tool_config() {
 	local tool_name="$1"
 	local config_line=""
@@ -195,6 +197,8 @@ parse_tool_config() {
 
 	if [ -z "${config_line:-}" ]; then
 		TOOL_VERSION_TYPE="stable"
+		TOOL_CONFIG="false"
+		TOOL_POST_COMMAND=""
 		return
 	fi
 
@@ -234,35 +238,12 @@ configure_git_trust() {
 	fi
 
 	# Add directory to git safe.directory config
-	# Use sudo -E to preserve environment variables
-	sudo -E git config --global --add safe.directory "$repo_dir"
+	sudo git config --global --add safe.directory "$repo_dir"
 
 	# Verify trust was added
 	info "Added Git trust for repository: $repo_dir"
 
 	return 0
-}
-
-# Add to ~/.config/zsh/install/common.sh
-
-# Safely checkout a repository, handling any local changes
-# Args:
-#   $1: Repository directory
-#   $2: Branch or tag to checkout
-git_checkout_safe() {
-	local repo_dir="$1"
-	local checkout_target="$2"
-
-	# Ensure the repository is trusted
-	configure_git_trust "$repo_dir"
-
-	# Reset and clean the repository
-	(cd "$repo_dir" && sudo -u root git reset --hard)
-	(cd "$repo_dir" && sudo -u root git clean -fd)
-
-	# Use sudo for the git operation
-	(cd "$repo_dir" && sudo -u root git checkout "$checkout_target")
-	return $?
 }
 
 # Setup tool repository in cache
@@ -274,12 +255,15 @@ setup_tool_repo() {
 	local repo_url="$2"
 	local cache_dir="$CACHE_DIR/$tool_name"
 
-	# Ensure directories exist with proper permissions
-	if [ ! -d "$cache_dir" ]; then
-		sudo mkdir -p "$cache_dir"
-		sudo chown root:staff "$cache_dir"
-		sudo chmod 775 "$cache_dir"
+	# Create cache directory if it doesn't exist
+	if [ ! -d "$CACHE_DIR" ]; then
+		sudo mkdir -p "$CACHE_DIR"
+		sudo chown root:staff "$CACHE_DIR"
+		sudo chmod 775 "$CACHE_DIR"
 	fi
+
+	# Ensure cache directory exists with proper permissions
+	ensure_dir_permissions "$cache_dir"
 
 	if [ ! -d "$cache_dir/.git" ]; then
 		info "Cloning $tool_name repository..."
@@ -292,9 +276,9 @@ setup_tool_repo() {
 		# Make sure git trusts this directory
 		configure_git_trust "$cache_dir"
 
-		# Reset the repository to clean state
-		(cd "$cache_dir" && sudo -u root git reset --hard)
-		(cd "$cache_dir" && sudo -u root git clean -fd)
+		# Reset repository to clean state
+		(cd "$cache_dir" && sudo -u root git reset --hard) || warn "Failed to reset repository"
+		(cd "$cache_dir" && sudo -u root git clean -fd) || warn "Failed to clean repository"
 
 		# Fetch updates
 		(cd "$cache_dir" && sudo -u root git fetch) || error "Failed to update repository"
@@ -328,7 +312,7 @@ get_target_version() {
 	fi
 
 	# Get the latest tag that looks like a version number
-	(cd "$repo_dir" && sudo git fetch --tags && sudo git tag -l | grep -E '^v?[0-9]+(\.[0-9]+)*$' | sort -V | tail -n1)
+	(cd "$repo_dir" && git fetch --tags && git tag -l | grep -E '^v?[0-9]+(\.[0-9]+)*$' | sort -V | tail -n1)
 }
 
 ###############################################################################
@@ -404,11 +388,14 @@ install_or_update_tool() {
 			info "$tool_name is already installed, checking for updates..."
 		fi
 
-		# Build from source
-		"$build_func" "$repo_dir" "$TOOL_VERSION_TYPE"
+		# Build from source - call the function passed as parameter
+		$build_func "$repo_dir" "$TOOL_VERSION_TYPE"
 		;;
 	*)
 		error "Invalid version type: $TOOL_VERSION_TYPE"
 		;;
 	esac
 }
+
+# Export the PACKAGE_MANAGER variable for other scripts
+export PACKAGE_MANAGER
