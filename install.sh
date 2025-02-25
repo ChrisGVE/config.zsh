@@ -90,7 +90,7 @@ install_configs() {
 	info "Installing configuration files..."
 
 	# Install main configuration
-	sudo cp "$source_dir/tools.conf" "$config_dir/"
+	sudo cp "$source_dir/install/tools.conf" "$config_dir/"
 	sudo cp "$source_dir/install/"*.sh "$config_dir/"
 	sudo cp -r "$source_dir/install/tools" "$config_dir/"
 
