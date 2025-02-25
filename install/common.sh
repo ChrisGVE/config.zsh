@@ -243,6 +243,28 @@ configure_git_trust() {
 	return 0
 }
 
+# Add to ~/.config/zsh/install/common.sh
+
+# Safely checkout a repository, handling any local changes
+# Args:
+#   $1: Repository directory
+#   $2: Branch or tag to checkout
+git_checkout_safe() {
+	local repo_dir="$1"
+	local checkout_target="$2"
+
+	# Ensure the repository is trusted
+	configure_git_trust "$repo_dir"
+
+	# Reset and clean the repository
+	(cd "$repo_dir" && sudo -u root git reset --hard)
+	(cd "$repo_dir" && sudo -u root git clean -fd)
+
+	# Use sudo for the git operation
+	(cd "$repo_dir" && sudo -u root git checkout "$checkout_target")
+	return $?
+}
+
 # Setup tool repository in cache
 # Args:
 #   $1: Tool name
@@ -252,12 +274,12 @@ setup_tool_repo() {
 	local repo_url="$2"
 	local cache_dir="$CACHE_DIR/$tool_name"
 
-	# Ensure the directories exist with proper permissions
-	ensure_dir_permissions "$cache_dir"
-
-	# Ensure the cache directory and its contents are owned by root:staff with write permissions
-	sudo chown -R root:staff "$cache_dir"
-	sudo chmod -R 775 "$cache_dir"
+	# Ensure directories exist with proper permissions
+	if [ ! -d "$cache_dir" ]; then
+		sudo mkdir -p "$cache_dir"
+		sudo chown root:staff "$cache_dir"
+		sudo chmod 775 "$cache_dir"
+	fi
 
 	if [ ! -d "$cache_dir/.git" ]; then
 		info "Cloning $tool_name repository..."
@@ -270,39 +292,22 @@ setup_tool_repo() {
 		# Make sure git trusts this directory
 		configure_git_trust "$cache_dir"
 
-		# Use sudo for git operations to avoid permission issues
+		# Reset the repository to clean state
+		(cd "$cache_dir" && sudo -u root git reset --hard)
+		(cd "$cache_dir" && sudo -u root git clean -fd)
+
+		# Fetch updates
 		(cd "$cache_dir" && sudo -u root git fetch) || error "Failed to update repository"
 	fi
 
 	# Always ensure the repository is trusted after operations
 	configure_git_trust "$cache_dir"
 
+	# Ensure proper permissions
+	sudo chown -R root:staff "$cache_dir"
+	sudo chmod -R 775 "$cache_dir"
+
 	echo "$cache_dir"
-}
-
-# Perform a git checkout with proper permissions
-# Args:
-#   $1: Repository directory
-#   $2: Branch or tag to checkout
-git_checkout_safe() {
-	local repo_dir="$1"
-	local checkout_target="$2"
-
-	# Ensure the repository is trusted
-	configure_git_trust "$repo_dir"
-
-	# Remove any existing lock files
-	if [ -f "$repo_dir/.git/index.lock" ]; then
-		sudo rm -f "$repo_dir/.git/index.lock"
-	fi
-
-	# Fix permissions
-	sudo chown -R root:staff "$repo_dir"
-	sudo chmod -R g+w "$repo_dir/.git"
-
-	# Use sudo for the git operation
-	(cd "$repo_dir" && sudo -u root git checkout "$checkout_target")
-	return $?
 }
 
 ###############################################################################
