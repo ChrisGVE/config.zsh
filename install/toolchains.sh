@@ -388,17 +388,9 @@ install_perl() {
 		current_version=$(perl -v 2>/dev/null | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1 || echo "")
 	fi
 
-	# Get latest version with error handling
-	local version=""
-	local webpage=$(curl -s https://www.perl.org/get.html || echo "")
-	if [ -n "$webpage" ]; then
-		version=$(echo "$webpage" | grep -o 'perl-[0-9.]*\.tar\.gz' | head -1 | grep -o '[0-9.]*' || echo "")
-	fi
-
-	if [ -z "$version" ]; then
-		warn "Could not determine latest Perl version. Using fallback version 5.38.0"
-		version="5.38.0"
-	fi
+	# Set a specific version to avoid web scraping issues
+	local version="5.38.0"
+	info "Using Perl version $version"
 
 	# Determine if we need to install or update
 	if [ ! -d "$perl_dir" ] || [ -z "$current_version" ] || [ "$current_version" != "$version" ]; then
@@ -407,12 +399,13 @@ install_perl() {
 		rm -rf "$tmp_dir"
 		mkdir -p "$tmp_dir"
 
-		# Download and extract Perl
+		# Download and extract Perl with a hardcoded URL
 		info "Downloading Perl ${version}..."
-		curl -L "https://www.cpan.org/src/5.0/perl-$version.tar.gz" -o "$tmp_dir/perl.tar.gz"
+		local download_url="https://www.cpan.org/src/5.0/perl-${version}.tar.gz"
+		curl -L "$download_url" -o "$tmp_dir/perl.tar.gz"
 
 		if [ ! -f "$tmp_dir/perl.tar.gz" ]; then
-			error "Failed to download Perl archive"
+			error "Failed to download Perl archive from $download_url"
 		fi
 
 		# Extract and build
