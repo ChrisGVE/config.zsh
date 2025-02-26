@@ -46,6 +46,9 @@ export COMPLETION_WAITING_DOTS="true"
 export ZSH_CUSTOM=$XDG_CONFIG_HOME/zsh/custom
 export ZSH="$ZDOTDIR/ohmyzsh"
 
+# Safety limit for function nesting depth (fixes maximum nested function level reached error)
+FUNCNEST=100
+
 ####################
 # TOOL EXPORTS
 ####################
@@ -305,8 +308,19 @@ else
     export KEYTIMEOUT=1
 fi
 
+# Flag to prevent recursive calls to _update_vim_mode
+typeset -g VIM_MODE_UPDATING=0
+
 # Function to update cursor and mode and refresh prompt
 function _update_vim_mode() {
+    # Check if we're already updating to prevent recursion
+    if (( VIM_MODE_UPDATING )); then
+        return
+    fi
+    
+    # Set flag to indicate we're updating
+    VIM_MODE_UPDATING=1
+    
     local mode=$1
     export POSH_VI_MODE="$mode"
     
@@ -325,6 +339,9 @@ function _update_vim_mode() {
             zle && zle reset-prompt
         fi
     fi
+    
+    # Clear the flag when we're done
+    VIM_MODE_UPDATING=0
 }
 
 # Define mode switching function if zsh-vi-mode is available
@@ -437,12 +454,10 @@ fi
 # TOOL CONFIGURATIONS
 ####################
 # Setup luarocks
-if command -v luarocks >/dev/null 2>&1; then
-    eval "$(luarocks path --bin)"
-fi
+if type luarocks >/dev/null 2>&1; then eval "$(luarocks path --bin)"; fi
 
 # Setup fzf
-if command -v fzf >/dev/null 2>&1; then
+if command -v fzf >/dev/null 2>&1; then 
     # Try different potential sources for fzf completion
     if [[ -f "$HOMEBREW_PREFIX/opt/fzf/shell/completion.zsh" ]]; then
         source "$HOMEBREW_PREFIX/opt/fzf/shell/completion.zsh"
@@ -455,7 +470,7 @@ if command -v fzf >/dev/null 2>&1; then
         source "$ZDOTDIR/plugins/fzf/key-bindings.zsh"
     else
         # Try using the built-in completion generator if available
-        source <(fzf --zsh 2>/dev/null)
+        source <(fzf --zsh 2>/dev/null) || true
     fi
     
     # FZF theming with catppuccin-mocha
@@ -472,8 +487,18 @@ if command -v fzf >/dev/null 2>&1; then
 fi
 
 # Setup zoxide with custom cd handling
-if command -v zoxide >/dev/null 2>&1; then 
-    eval "$(zoxide init zsh --cmd cd --hook pwd)"
+# NOTE: We use a function instead of eval to avoid recursion
+function_exists() {
+    declare -f -F $1 > /dev/null
+    return $?
+}
+
+if command -v zoxide >/dev/null 2>&1; then
+    # Only initialize zoxide if it hasn't been initialized already
+    if ! function_exists __zoxide_zi; then
+        # Initialize with hook=pwd and cmd=cd
+        eval "$(zoxide init zsh --hook pwd --cmd cd)"
+    fi
 fi
 
 # Detect and set up bat/batcat
@@ -492,9 +517,15 @@ if command -v fast-theme > /dev/null 2>&1; then
     fi
 fi
 
-# Setup batman
+# Setup batman (only if it exists and supports --export-env)
 if command -v batman >/dev/null 2>&1; then
-    eval "$(batman --export-env)"
+    # Check if batman supports --export-env by testing with --help
+    if batman --help 2>&1 | grep -q -- "--export-env"; then
+        eval "$(batman --export-env)"
+    else
+        # In case it doesn't support the flag, create a simple alias
+        alias batman="man"
+    fi
 fi
 
 # Setup ssh-agent
@@ -504,7 +535,7 @@ if [ $(ps -p 1 -o comm=) != "systemd" ]; then
         echo "ssh-agent already running" > /dev/null
     else
         eval $(ssh-agent -s)
-        if [ "$(ssh-add -l)" == "The agent has no identities." ]; then
+        if [ "$(ssh-add -l)" = "The agent has no identities." ]; then
             if [[ -f ~/.ssh/id_rsa ]]; then
                 ssh-add ~/.ssh/id_rsa
             elif [[ -f ~/.ssh/id_ed25519 ]]; then
@@ -549,8 +580,8 @@ else
     alias nvimconfig="vim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
     
     # System utilities specific to Linux
-    alias apt-upgrade="sudo apt update && sudo apt upgrade"
-    alias apt-clean="sudo apt autoremove && sudo apt autoclean"
+    alias apt-upgrade="sudo apt-get update && sudo apt-get upgrade"
+    alias apt-clean="sudo apt-get autoremove && sudo apt-get autoclean"
 fi
 
 # Cross-platform aliases
