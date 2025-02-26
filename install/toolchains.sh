@@ -79,7 +79,12 @@ install_miniconda() {
 		# If conda directory exists but binary doesn't, remove the directory
 		if [ -d "$conda_dir" ]; then
 			info "Conda directory exists but binary not found. Removing directory..."
+			# Make sure to completely remove the directory with proper permissions
 			sudo rm -rf "$conda_dir"
+			# Verify removal was successful
+			if [ -d "$conda_dir" ]; then
+				error "Failed to remove existing conda directory. Please remove it manually: sudo rm -rf $conda_dir"
+			fi
 		fi
 
 		# Create directory with proper permissions
@@ -99,8 +104,15 @@ install_miniconda() {
 		curl -L "https://repo.anaconda.com/miniconda/Miniconda3-latest-${os_name}-${arch}.sh" -o "$tmp_installer"
 
 		# Run installer with sudo to avoid permission issues
-		sudo bash "$tmp_installer" -b -p "$conda_dir"
+		# Add -f to force the installation in the specified directory
+		sudo bash "$tmp_installer" -b -f -p "$conda_dir"
+		local install_status=$?
 		rm -f "$tmp_installer"
+
+		# Check if installation was successful
+		if [ $install_status -ne 0 ] || [ ! -f "$conda_bin" ]; then
+			error "Miniconda installation failed. Binary not found at $conda_bin"
+		fi
 
 		# Set permissions
 		ensure_dir_permissions "$conda_dir" "775" "true"
@@ -108,11 +120,6 @@ install_miniconda() {
 		# Create symlinks
 		create_managed_symlink "$conda_bin" "$BASE_DIR/bin/conda"
 		create_managed_symlink "$conda_dir/bin/python" "$BASE_DIR/bin/python3"
-
-		# Check if installation was successful
-		if [ ! -f "$conda_bin" ]; then
-			error "Miniconda installation failed. Binary not found at $conda_bin"
-		fi
 
 		TOOLCHAIN_STATES["conda"]="installed"
 		TOOLCHAIN_VERSIONS["conda"]=$("$conda_bin" --version | cut -d' ' -f2)
