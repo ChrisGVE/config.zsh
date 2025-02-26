@@ -1,5 +1,6 @@
 #!/usr/bin/zsh
 
+# For profiling, uncomment:
 # zmodload zsh/zprof
 
 ####################
@@ -8,7 +9,7 @@
 case "$(uname -s)" in
     Darwin*)    
         export OS_TYPE="macos"
-        if which brew >/dev/null 2>&1; then
+        if command -v brew >/dev/null 2>&1; then
             export HOMEBREW_PREFIX="$(brew --prefix)"
         fi
         ;;
@@ -42,7 +43,7 @@ source ~/.zshenv
 export CASE_SENSITIVE="false"
 export HYPHEN_INSENSITIVE="true"
 export COMPLETION_WAITING_DOTS="true"
-export ZSH_CUSTOM=$XDG_CONFIG_HOME/zsh
+export ZSH_CUSTOM=$XDG_CONFIG_HOME/zsh/custom
 export ZSH="$ZDOTDIR/ohmyzsh"
 
 ####################
@@ -75,29 +76,53 @@ _source_if_exists() {
     fi
 }
 
-_get_plugin_path() {
+# Find plugins across multiple locations
+_find_plugin() {
     local plugin_name="$1"
     local plugin_file="$2"
     
-    case "$OS_TYPE" in
-        macos)
-            echo "$HOMEBREW_PREFIX/opt/$plugin_name/$plugin_file"
-            ;;
-        raspberrypi|linux)
-            # Check common Linux paths
-            local paths=(
-                "$HOME/.zsh/plugins/$plugin_name/$plugin_file"
-                "/usr/share/zsh/plugins/$plugin_name/$plugin_file"
-                "/usr/local/share/zsh/plugins/$plugin_name/$plugin_file"
-            )
-            for path in "${paths[@]}"; do
-                if [[ -f "$path" ]]; then
-                    echo "$path"
-                    return
-                fi
-            done
-            ;;
-    esac
+    # Check in Homebrew location (macOS)
+    if [[ "$OS_TYPE" == "macos" && -n "$HOMEBREW_PREFIX" ]]; then
+        local brew_path="$HOMEBREW_PREFIX/opt/$plugin_name/$plugin_file"
+        if [[ -f "$brew_path" ]]; then
+            echo "$brew_path"
+            return
+        fi
+        
+        # Also check share location
+        local brew_share_path="$HOMEBREW_PREFIX/share/$plugin_name/$plugin_file"
+        if [[ -f "$brew_share_path" ]]; then
+            echo "$brew_share_path"
+            return
+        fi
+    fi
+    
+    # Check in custom plugins directory (should work on all platforms)
+    local custom_path="$ZDOTDIR/plugins/$plugin_name/$plugin_file"
+    if [[ -f "$custom_path" ]]; then
+        echo "$custom_path"
+        return
+    fi
+    
+    # Check system locations on Linux
+    if [[ "$OS_TYPE" == "linux" || "$OS_TYPE" == "raspberrypi" ]]; then
+        # Check common Linux paths
+        local linux_paths=(
+            "$HOME/.zsh/plugins/$plugin_name/$plugin_file"
+            "/usr/share/zsh/plugins/$plugin_name/$plugin_file"
+            "/usr/local/share/zsh/plugins/$plugin_name/$plugin_file"
+            "/usr/share/zsh/vendor-completions/$plugin_file"
+        )
+        for path in "${linux_paths[@]}"; do
+            if [[ -f "$path" ]]; then
+                echo "$path"
+                return
+            fi
+        done
+    fi
+    
+    # Return empty if not found
+    echo ""
 }
 
 _append_to_env() {
@@ -137,38 +162,44 @@ _append_to_env "$HOME/bin" ":" "PATH"
 _append_to_env "$HOME/Scripts" ":" "PATH"
 _append_to_env "$XDG_BIN_HOME" ":" "PATH"
 
-# Development tools
-_append_to_env "/usr/local/opt/openjdk/bin" ":" "PATH"
-_append_to_env "/usr/local/opt/dart@2.18/bin" ":" "PATH"
-_append_to_env "/usr/local/opt/sphinx-doc/bin" ":" "PATH"
-
-# Ruby configuration
-_append_to_env "/usr/local/opt/ruby/bin" ":" "PATH"
-_append_to_env "/usr/local/opt/ruby/lib" "-L" "LDFLAGS"
-_append_to_env "/usr/local/opt/ruby/include" "-I" "CPPFLAGS"
-_append_to_env "/usr/local/opt/ruby/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
-
-# Curl configuration
-_append_to_env "/usr/local/opt/curl/bin" ":" "PATH"
-_append_to_env "/usr/local/opt/curl/lib" "-L" "LDFLAGS"
-_append_to_env "/usr/local/opt/curl/include" "-I" "CPPFLAGS"
-_append_to_env "/usr/local/opt/curl/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
-
-# Compiler tools
-_append_to_env "/usr/local/opt/arm-none-eabi-gcc@8/bin" ":" "PATH"
-_append_to_env "/usr/local/opt/arm-none-eabi-binutils/bin" ":" "PATH"
-_append_to_env "/usr/local/opt/avr-gcc@8/bin" ":" "PATH"
-_append_to_env "/usr/local/opt/arm-none-eabi-gcc@8/lib" "-L" "LDFLAGS"
-_append_to_env "/usr/local/opt/avr-gcc@8/lib" "-L" "LDFLAGS"
-
-# MySQL configuration
-_append_to_env "/usr/local/opt/mysql@8.4/bin" ":" "PATH"
-_append_to_env "/usr/local/opt/mysql@8.4/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
-_append_to_env "/usr/local/opt/mysql@8.4/lib" "-L" "LDFLAGS"
-_append_to_env "/usr/local/opt/mysql@8.4/include" "-I" "CPPFLAGS"
-
-# GNU tools
-_append_to_env "/usr/local/opt/gnu-sed/libexec/gnubin" ":" "PATH"
+# Platform-specific paths
+if [[ "$OS_TYPE" == "macos" && -n "$HOMEBREW_PREFIX" ]]; then
+    # macOS with Homebrew
+    _append_to_env "$HOMEBREW_PREFIX/opt/openjdk/bin" ":" "PATH"
+    _append_to_env "$HOMEBREW_PREFIX/opt/dart@2.18/bin" ":" "PATH"
+    _append_to_env "$HOMEBREW_PREFIX/opt/sphinx-doc/bin" ":" "PATH"
+    
+    # Ruby configuration
+    _append_to_env "$HOMEBREW_PREFIX/opt/ruby/bin" ":" "PATH"
+    _append_to_env "$HOMEBREW_PREFIX/opt/ruby/lib" "-L" "LDFLAGS"
+    _append_to_env "$HOMEBREW_PREFIX/opt/ruby/include" "-I" "CPPFLAGS"
+    _append_to_env "$HOMEBREW_PREFIX/opt/ruby/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
+    
+    # Curl configuration
+    _append_to_env "$HOMEBREW_PREFIX/opt/curl/bin" ":" "PATH"
+    _append_to_env "$HOMEBREW_PREFIX/opt/curl/lib" "-L" "LDFLAGS"
+    _append_to_env "$HOMEBREW_PREFIX/opt/curl/include" "-I" "CPPFLAGS"
+    _append_to_env "$HOMEBREW_PREFIX/opt/curl/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
+    
+    # Compiler tools
+    _append_to_env "$HOMEBREW_PREFIX/opt/arm-none-eabi-gcc@8/bin" ":" "PATH"
+    _append_to_env "$HOMEBREW_PREFIX/opt/arm-none-eabi-binutils/bin" ":" "PATH"
+    _append_to_env "$HOMEBREW_PREFIX/opt/avr-gcc@8/bin" ":" "PATH"
+    _append_to_env "$HOMEBREW_PREFIX/opt/arm-none-eabi-gcc@8/lib" "-L" "LDFLAGS"
+    _append_to_env "$HOMEBREW_PREFIX/opt/avr-gcc@8/lib" "-L" "LDFLAGS"
+    
+    # MySQL configuration
+    _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/bin" ":" "PATH"
+    _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
+    _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/lib" "-L" "LDFLAGS"
+    _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/include" "-I" "CPPFLAGS"
+    
+    # GNU tools
+    _append_to_env "$HOMEBREW_PREFIX/opt/gnu-sed/libexec/gnubin" ":" "PATH"
+else
+    # Linux-specific paths
+    _append_to_env "/usr/lib/dart/bin" ":" "PATH"
+fi
 
 ####################
 # CONDA SETUP (DEFERRED LOADING)
@@ -179,10 +210,30 @@ conda() {
     local conda_path
     case "$OS_TYPE" in
         macos)
-            conda_path="/usr/local/Caskroom/miniconda/base"
+            # Try several possible conda locations on macOS
+            if [ -d "/usr/local/Caskroom/miniconda/base" ]; then
+                conda_path="/usr/local/Caskroom/miniconda/base"
+            elif [ -d "$HOMEBREW_PREFIX/Caskroom/miniconda/base" ]; then
+                conda_path="$HOMEBREW_PREFIX/Caskroom/miniconda/base"
+            elif [ -d "$HOME/miniconda3" ]; then
+                conda_path="$HOME/miniconda3"
+            else
+                conda_path="/opt/local/conda"
+            fi
             ;;
         raspberrypi|linux)
-            conda_path="/opt/local/conda"
+            # Try several possible conda locations on Linux
+            if [ -d "/opt/local/share/dev/toolchains/conda" ]; then
+                conda_path="/opt/local/share/dev/toolchains/conda"
+            elif [ -d "/usr/local/share/dev/toolchains/conda" ]; then
+                conda_path="/usr/local/share/dev/toolchains/conda" 
+            elif [ -d "/opt/conda" ]; then
+                conda_path="/opt/conda"
+            elif [ -d "$HOME/miniconda3" ]; then
+                conda_path="$HOME/miniconda3"
+            else
+                conda_path="/opt/local/conda"
+            fi
             ;;
     esac
     
@@ -207,8 +258,16 @@ conda() {
 ####################
 # OH-MY-ZSH CONFIGURATION
 ####################
-plugins=(git history-substring-search)
-source $ZSH/oh-my-zsh.sh
+if [[ -d "$ZSH" ]]; then
+    plugins=(git history-substring-search)
+    source $ZSH/oh-my-zsh.sh
+else
+    warn "Oh My Zsh not found at $ZSH. Basic configuration will be used."
+    # Basic history configuration without Oh My Zsh
+    bindkey '^[[A' history-substring-search-up
+    bindkey '^[[B' history-substring-search-down
+    autoload -U compinit && compinit
+fi
 
 ####################
 # HISTORY CONFIGURATION
@@ -235,8 +294,16 @@ HISTORY_SUBSTRING_SEARCH_PREFIXED=1
 # Set up initial vi mode state
 export POSH_VI_MODE="INSERT"
 
-# Initialize zsh-vi-mode first
-source $HOMEBREW_PREFIX/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
+# Initialize zsh-vi-mode
+ZVM_PATH=$(_find_plugin "zsh-vi-mode" "zsh-vi-mode.plugin.zsh")
+if [[ -n "$ZVM_PATH" ]]; then
+    source "$ZVM_PATH"
+else
+    # Basic vi mode if plugin not available
+    bindkey -v
+    # Make Vi mode transitions faster
+    export KEYTIMEOUT=1
+fi
 
 # Function to update cursor and mode and refresh prompt
 function _update_vim_mode() {
@@ -260,26 +327,28 @@ function _update_vim_mode() {
     fi
 }
 
-# Define mode switching function
-function zvm_after_select_vi_mode() {
-    case $ZVM_MODE in
-        $ZVM_MODE_NORMAL)
-            _update_vim_mode "NORMAL"
-            ;;
-        $ZVM_MODE_INSERT)
-            _update_vim_mode "INSERT"
-            ;;
-        $ZVM_MODE_VISUAL)
-            _update_vim_mode "VISUAL"
-            ;;
-        $ZVM_MODE_VISUAL_LINE)
-            _update_vim_mode "V-LINE"
-            ;;
-        $ZVM_MODE_REPLACE)
-            _update_vim_mode "REPLACE"
-            ;;
-    esac
-}
+# Define mode switching function if zsh-vi-mode is available
+if [[ -n "$ZVM_PATH" ]]; then
+    function zvm_after_select_vi_mode() {
+        case $ZVM_MODE in
+            $ZVM_MODE_NORMAL)
+                _update_vim_mode "NORMAL"
+                ;;
+            $ZVM_MODE_INSERT)
+                _update_vim_mode "INSERT"
+                ;;
+            $ZVM_MODE_VISUAL)
+                _update_vim_mode "VISUAL"
+                ;;
+            $ZVM_MODE_VISUAL_LINE)
+                _update_vim_mode "V-LINE"
+                ;;
+            $ZVM_MODE_REPLACE)
+                _update_vim_mode "REPLACE"
+                ;;
+        esac
+    }
+fi
 
 # Set up line init handler
 function zle-line-init() {
@@ -302,21 +371,27 @@ function zle-keymap-select() {
 zle -N zle-keymap-select
 
 # Handle key bindings after vi-mode initialization
-function zvm_after_init() {
-    # Set initial cursor shape
-    echo -ne '\e[5 q'
-    
-    # History search bindings for both modes
-    bindkey -M vicmd '^[[A' history-substring-search-up
-    bindkey -M vicmd '^[[B' history-substring-search-down
-    bindkey -M viins '^[[A' history-substring-search-up
-    bindkey -M viins '^[[B' history-substring-search-down
-    
-    # Additional key bindings
-    bindkey -M viins '^?' backward-delete-char
-    bindkey -M viins '^n' expand-or-complete
-    bindkey -M viins '^p' reverse-menu-complete
-}
+if [[ -n "$ZVM_PATH" ]]; then
+    function zvm_after_init() {
+        # Set initial cursor shape
+        echo -ne '\e[5 q'
+        
+        # History search bindings for both modes
+        bindkey -M vicmd '^[[A' history-substring-search-up
+        bindkey -M vicmd '^[[B' history-substring-search-down
+        bindkey -M viins '^[[A' history-substring-search-up
+        bindkey -M viins '^[[B' history-substring-search-down
+        
+        # Additional key bindings
+        bindkey -M viins '^?' backward-delete-char
+        bindkey -M viins '^n' expand-or-complete
+        bindkey -M viins '^p' reverse-menu-complete
+    }
+else
+    # Setup similar keybindings without zsh-vi-mode
+    bindkey '^n' expand-or-complete
+    bindkey '^p' reverse-menu-complete
+fi
 
 # Reset cursor on exit
 function zle-line-finish() {
@@ -328,7 +403,13 @@ zle -N zle-line-finish
 # OH-MY-POSH CONFIGURATION
 ####################
 if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
-    eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml)"
+    if command -v oh-my-posh >/dev/null 2>&1; then
+        if [[ -f "$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" ]]; then
+            eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml)"
+        else
+            eval "$(oh-my-posh init zsh)"
+        fi
+    fi
 fi
 
 ####################
@@ -338,22 +419,47 @@ fi
 zstyle ':autosuggest:*' min-length 2
 ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 ZSH_AUTOSUGGEST_STRATEGY=(history completion)
-source $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+# Source zsh-autosuggestions if available
+AUTOSUGGESTIONS_PATH=$(_find_plugin "zsh-autosuggestions" "zsh-autosuggestions.zsh")
+if [[ -n "$AUTOSUGGESTIONS_PATH" ]]; then
+    source "$AUTOSUGGESTIONS_PATH"
+fi
 
 # Fast-syntax-highlighting (load last to properly highlight everything)
-source $HOMEBREW_PREFIX/opt/zsh-fast-syntax-highlighting/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
+# First try different potential locations
+FSH_PATH=$(_find_plugin "fast-syntax-highlighting" "fast-syntax-highlighting.plugin.zsh")
+if [[ -n "$FSH_PATH" ]]; then
+    source "$FSH_PATH"
+fi
 
 ####################
 # TOOL CONFIGURATIONS
 ####################
 # Setup luarocks
-if type luarocks >/dev/null 2>&1; then eval "$(luarocks path --bin)"; fi
+if command -v luarocks >/dev/null 2>&1; then
+    eval "$(luarocks path --bin)"
+fi
 
 # Setup fzf
-if type fzf >/dev/null 2>&1; then 
-    source <(fzf --zsh)
+if command -v fzf >/dev/null 2>&1; then
+    # Try different potential sources for fzf completion
+    if [[ -f "$HOMEBREW_PREFIX/opt/fzf/shell/completion.zsh" ]]; then
+        source "$HOMEBREW_PREFIX/opt/fzf/shell/completion.zsh"
+        source "$HOMEBREW_PREFIX/opt/fzf/shell/key-bindings.zsh"
+    elif [[ -f "/usr/share/doc/fzf/examples/completion.zsh" ]]; then
+        source "/usr/share/doc/fzf/examples/completion.zsh"
+        source "/usr/share/doc/fzf/examples/key-bindings.zsh"
+    elif [[ -f "$ZDOTDIR/plugins/fzf/completion.zsh" ]]; then
+        source "$ZDOTDIR/plugins/fzf/completion.zsh"
+        source "$ZDOTDIR/plugins/fzf/key-bindings.zsh"
+    else
+        # Try using the built-in completion generator if available
+        source <(fzf --zsh 2>/dev/null)
+    fi
+    
     # FZF theming with catppuccin-mocha
-    fzf_version=$(fzf --version)
+    fzf_version=$(fzf --version | awk '{print $1}')
     fzf_req_version="0.57.0"
     if [ "$(printf '%s\n' "$fzf_req_version" "$fzf_version" | sort -V | head -n1)" = "$fzf_req_version" ]; then 
         export FZF_DEFAULT_OPTS=" \
@@ -366,32 +472,51 @@ if type fzf >/dev/null 2>&1; then
 fi
 
 # Setup zoxide with custom cd handling
-if type zoxide >/dev/null 2>&1; then 
+if command -v zoxide >/dev/null 2>&1; then 
     eval "$(zoxide init zsh --cmd cd --hook pwd)"
 fi
 
 # Detect and set up bat/batcat
-if type bat >/dev/null 2>&1; then
+if command -v bat >/dev/null 2>&1; then
     export BAT_CMD="bat"
-elif type batcat >/dev/null 2>&1; then
+elif command -v batcat >/dev/null 2>&1; then
     export BAT_CMD="batcat"
     # Optional: create bat alias if you want to always use 'bat' command
     alias bat="batcat"
 fi
 
 # Setup bat theme
-if type fast-theme > /dev/null 2>&1; then fast-theme XDG:catppuccin-mocha > /dev/null 2>&1; fi
+if command -v fast-theme > /dev/null 2>&1; then
+    if [[ -d "$XDG_DATA_HOME/zsh-fast-syntax-highlighting/themes" ]]; then
+        fast-theme XDG:catppuccin-mocha > /dev/null 2>&1
+    fi
+fi
 
 # Setup batman
-eval "$(batman --export-env)"
+if command -v batman >/dev/null 2>&1; then
+    eval "$(batman --export-env)"
+fi
 
 # Setup ssh-agent
-if [ $(ps ax | grep ssh-agent | wc -l) -gt 0 ] ; then
-    echo "ssh-agent already running" > /dev/null
+if [ $(ps -p 1 -o comm=) != "systemd" ]; then
+    # Non-systemd systems
+    if [ $(ps ax | grep ssh-agent | wc -l) -gt 0 ] ; then
+        echo "ssh-agent already running" > /dev/null
+    else
+        eval $(ssh-agent -s)
+        if [ "$(ssh-add -l)" == "The agent has no identities." ]; then
+            if [[ -f ~/.ssh/id_rsa ]]; then
+                ssh-add ~/.ssh/id_rsa
+            elif [[ -f ~/.ssh/id_ed25519 ]]; then
+                ssh-add ~/.ssh/id_ed25519
+            fi
+        fi
+    fi
 else
-    eval $(ssh-agent -s)
-    if [ "$(ssh-add -l)" == "The agent has no identities."]; then
-        ssh-add ~/.ssh/id_rsa
+    # On systemd systems, check if ssh-agent is running via systemd
+    if ! systemctl --user is-active ssh-agent >/dev/null 2>&1; then
+        # If not, start it
+        systemctl --user start ssh-agent.service >/dev/null 2>&1
     fi
 fi
 
@@ -399,26 +524,37 @@ fi
 # ALIASES
 ####################
 
-# Mac specific
+# Platform-specific aliases
 if [[ "$OS_TYPE" == "macos" ]]; then
-  # Config aliases
-  alias zshconfig="nvim $ZDOTDIR/zshrc"
-  alias zshsource="source $ZDOTDIR/zshrc"
-  alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
+    # Config aliases
+    alias zshconfig="nvim $ZDOTDIR/zshrc"
+    alias zshsource="source $ZDOTDIR/zshrc"
+    alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
 
-  # QMK aliases
-  alias qmk_og="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_firmware"
-  alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_keychron"
+    # QMK aliases
+    alias qmk_og="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_firmware"
+    alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_keychron"
 
-  # Nvim testing aliases
-  alias nvim-telescope='NVIM_APPNAME=nvim-telescope nvim'
-  alias nvim-fzf='NVIM_APPNAME=nvim-fzf nvim'
+    # Nvim testing aliases
+    alias nvim-telescope='NVIM_APPNAME=nvim-telescope nvim'
+    alias nvim-fzf='NVIM_APPNAME=nvim-fzf nvim'
 
-  # Tool aliases
-  alias lazygit='lazygit --use-config-file="/Users/chris/.config/lazygit/config.yml,/Users/chris/.config/lazygit/catppuccin/themes-mergable/mocha/blue.yml"'
-  alias disable_gatekeeper="sudo spctl --master-disable"
-  if type taskwarrior-tui > /dev/null 2>&1; then alias tt="taskwarrior-tui"; fi
+    # Tool aliases
+    alias lazygit='lazygit --use-config-file="$HOME/.config/lazygit/config.yml,$HOME/.config/lazygit/catppuccin/themes-mergable/mocha/blue.yml"'
+    alias disable_gatekeeper="sudo spctl --master-disable"
+else
+    # Linux-specific aliases
+    alias zshconfig="vim $ZDOTDIR/zshrc"
+    alias zshsource="source $ZDOTDIR/zshrc"
+    alias nvimconfig="vim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
+    
+    # System utilities specific to Linux
+    alias apt-upgrade="sudo apt update && sudo apt upgrade"
+    alias apt-clean="sudo apt autoremove && sudo apt autoclean"
 fi
+
+# Cross-platform aliases
+if command -v taskwarrior-tui > /dev/null 2>&1; then alias tt="taskwarrior-tui"; fi
 
 # Tmux aliases
 alias tmux_main="tmux new-session -ADs main"
@@ -447,7 +583,7 @@ if [[ -n "$BAT_CMD" ]]; then
     }
 
     # Update FZF with bat preview
-    if type fzf >/dev/null 2>&1; then 
+    if command -v fzf >/dev/null 2>&1; then 
         alias fzf="fzf --preview '$BAT_CMD --style=numbers --color=always {}' --preview-window '~3'"
     fi
 fi
@@ -463,4 +599,8 @@ else
     compinit -C
 fi
 
+# Load custom local configuration if it exists
+[[ -f $ZDOTDIR/zshrc.local ]] && source $ZDOTDIR/zshrc.local
+
+# For profiling, uncomment:
 # zprof

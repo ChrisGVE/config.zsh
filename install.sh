@@ -39,18 +39,70 @@ error() {
 }
 
 ###############################################################################
+# Platform Detection
+###############################################################################
+
+# Detect platform and set platform-specific variables
+detect_platform() {
+	# Detect OS (macos, linux, raspberrypi)
+	case "$(uname -s)" in
+	Darwin*)
+		export OS_TYPE="macos"
+		export ADMIN_GROUP="admin"
+		if command -v brew >/dev/null 2>&1; then
+			export HOMEBREW_PREFIX="$(brew --prefix)"
+		else
+			warn "Homebrew not found on macOS"
+		fi
+		;;
+	Linux*)
+		export OS_TYPE="linux"
+		# Detect Raspberry Pi
+		if [[ -f /sys/firmware/devicetree/base/model ]] && grep -q "Raspberry Pi" /sys/firmware/devicetree/base/model; then
+			export OS_TYPE="raspberrypi"
+		elif [[ -f /proc/cpuinfo ]] && grep -q "^Model.*:.*Raspberry" /proc/cpuinfo; then
+			export OS_TYPE="raspberrypi"
+		fi
+
+		# Determine appropriate admin group
+		if getent group sudo >/dev/null; then
+			export ADMIN_GROUP="sudo"
+		elif getent group wheel >/dev/null; then
+			export ADMIN_GROUP="wheel"
+		elif getent group adm >/dev/null; then
+			export ADMIN_GROUP="adm"
+		else
+			error "Could not determine appropriate admin group"
+		fi
+		;;
+	*)
+		error "Unsupported operating system"
+		;;
+	esac
+
+	info "Detected platform: $OS_TYPE with admin group: $ADMIN_GROUP"
+}
+
+###############################################################################
 # Directory Management
 ###############################################################################
 
 # Determine the base installation directory
 get_base_dir() {
-	if [ -d "/opt/local" ]; then
+	# Check if user has write access to /opt/local
+	if [ -d "/opt/local" ] && sudo -n test -w "/opt/local" 2>/dev/null; then
 		echo "/opt/local"
-	elif [ -d "/usr/local" ]; then
+	# Check if user has write access to /usr/local (via sudo)
+	elif [ -d "/usr/local" ] && sudo -n test -w "/usr/local" 2>/dev/null; then
+		echo "/usr/local"
+	# If neither is directly writable, prefer /opt/local with sudo
+	elif sudo -n mkdir -p "/opt/local" 2>/dev/null; then
+		echo "/opt/local"
+	# Fall back to /usr/local with sudo
+	elif sudo -n mkdir -p "/usr/local" 2>/dev/null; then
 		echo "/usr/local"
 	else
-		# Default to /opt/local if neither exists
-		echo "/opt/local"
+		error "Cannot determine or create usable installation directory"
 	fi
 }
 
@@ -70,7 +122,7 @@ setup_directories() {
 			if ! sudo mkdir -p "$dir"; then
 				error "Failed to create directory: $dir"
 			fi
-			sudo chown root:staff "$dir"
+			sudo chown root:$ADMIN_GROUP "$dir"
 			sudo chmod 775 "$dir"
 			info "Created directory: $dir"
 		fi
@@ -102,7 +154,7 @@ install_configs() {
 	fi
 
 	# Set permissions
-	sudo chown -R root:staff "$config_dir"
+	sudo chown -R root:$ADMIN_GROUP "$config_dir"
 	sudo chmod -R 775 "$config_dir"
 	sudo chmod 664 "$config_dir/tools.conf"
 	sudo chmod 775 "$config_dir/"*.sh
@@ -126,7 +178,7 @@ create_dependencies_command() {
 bash "$base_dir/etc/dev/dependencies.sh" "\$@"
 EOF
 
-	sudo chown root:staff "$script_path"
+	sudo chown root:$ADMIN_GROUP "$script_path"
 	sudo chmod 775 "$script_path"
 
 	info "Dependencies command created successfully"
@@ -138,6 +190,9 @@ EOF
 
 main() {
 	info "Starting global installation process..."
+
+	# Detect platform
+	detect_platform
 
 	# Get base installation directory
 	local base_dir="$(get_base_dir)"

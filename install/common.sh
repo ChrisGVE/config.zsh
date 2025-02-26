@@ -6,6 +6,7 @@
 # Purpose:
 # Provides shared functionality for the development tools management system.
 # This script handles:
+# - Platform detection and adaptation
 # - Directory and permission management
 # - Version detection and comparison
 # - Tool configuration parsing
@@ -13,7 +14,7 @@
 # - Post-installation tasks
 #
 # Environment:
-# All operations assume root:staff ownership and 775/664 permissions
+# Uses platform-appropriate permissions and ownership
 # All paths are system-wide under /opt/local or /usr/local
 ###############################################################################
 
@@ -28,30 +29,141 @@ error() {
 }
 
 ###############################################################################
+# Platform Detection
+###############################################################################
+
+# Detect platform and set platform-specific variables
+detect_platform() {
+	# Detect OS (macos, linux, raspberrypi)
+	case "$(uname -s)" in
+	Darwin*)
+		export OS_TYPE="macos"
+		export ADMIN_GROUP="admin"
+		if command -v brew >/dev/null 2>&1; then
+			export HOMEBREW_PREFIX="$(brew --prefix)"
+		else
+			warn "Homebrew not found on macOS"
+		fi
+		;;
+	Linux*)
+		export OS_TYPE="linux"
+		# Detect Raspberry Pi
+		if [[ -f /sys/firmware/devicetree/base/model ]] && grep -q "Raspberry Pi" /sys/firmware/devicetree/base/model; then
+			export OS_TYPE="raspberrypi"
+		elif [[ -f /proc/cpuinfo ]] && grep -q "^Model.*:.*Raspberry" /proc/cpuinfo; then
+			export OS_TYPE="raspberrypi"
+		fi
+
+		# Determine appropriate admin group
+		if getent group sudo >/dev/null; then
+			export ADMIN_GROUP="sudo"
+		elif getent group wheel >/dev/null; then
+			export ADMIN_GROUP="wheel"
+		elif getent group adm >/dev/null; then
+			export ADMIN_GROUP="adm"
+		else
+			error "Could not determine appropriate admin group"
+		fi
+		;;
+	*)
+		error "Unsupported operating system"
+		;;
+	esac
+
+	info "Detected platform: $OS_TYPE with admin group: $ADMIN_GROUP"
+}
+
+###############################################################################
 # Base Directory Management
 ###############################################################################
 
 # Get the base installation directory
 # Will be either /opt/local or /usr/local
 get_base_dir() {
-	if [ -d "/opt/local" ]; then
+	# Check if user has write access to /opt/local
+	if [ -d "/opt/local" ] && sudo -n test -w "/opt/local" 2>/dev/null; then
 		echo "/opt/local"
-	elif [ -d "/usr/local" ]; then
+	# Check if user has write access to /usr/local (via sudo)
+	elif [ -d "/usr/local" ] && sudo -n test -w "/usr/local" 2>/dev/null; then
+		echo "/usr/local"
+	# If neither is directly writable, prefer /opt/local with sudo
+	elif sudo -n mkdir -p "/opt/local" 2>/dev/null; then
+		echo "/opt/local"
+	# Fall back to /usr/local with sudo
+	elif sudo -n mkdir -p "/usr/local" 2>/dev/null; then
 		echo "/usr/local"
 	else
-		error "No valid installation directory found"
+		error "Cannot determine or create usable installation directory"
 	fi
 }
 
-# Set up global variables for common paths
-BASE_DIR="$(get_base_dir)"
-CACHE_DIR="$BASE_DIR/share/dev/cache"
-CONFIG_DIR="$BASE_DIR/etc/dev"
-TOOLS_CONF="$CONFIG_DIR/tools.conf"
+# Initialize common paths and variables
+init_common_vars() {
+	# Detect platform
+	detect_platform
+
+	# Set up base directories and paths
+	BASE_DIR="$(get_base_dir)"
+	export BASE_DIR
+
+	CACHE_DIR="$BASE_DIR/share/dev/cache"
+	CONFIG_DIR="$BASE_DIR/etc/dev"
+	TOOLS_CONF="$CONFIG_DIR/tools.conf"
+
+	export CACHE_DIR CONFIG_DIR TOOLS_CONF
+
+	info "Using base directory: $BASE_DIR"
+}
 
 ###############################################################################
 # Package Manager Operations
 ###############################################################################
+
+# Detect package manager
+detect_package_manager() {
+	# macOS uses Homebrew
+	if [[ "$OS_TYPE" == "macos" ]]; then
+		if command -v brew >/dev/null 2>&1; then
+			export PACKAGE_MANAGER="brew"
+			return 0
+		else
+			error "Homebrew not found but required for macOS"
+		fi
+	fi
+
+	# For Linux flavors
+	if [ -f /etc/os-release ]; then
+		. /etc/os-release
+		case "$ID" in
+		debian | ubuntu | raspbian)
+			export PACKAGE_MANAGER="apt"
+			;;
+		fedora | rhel | centos)
+			export PACKAGE_MANAGER="dnf"
+			;;
+		arch | manjaro)
+			export PACKAGE_MANAGER="pacman"
+			;;
+		*)
+			# Fallback to checking available package managers
+			if command -v apt >/dev/null 2>&1; then
+				export PACKAGE_MANAGER="apt"
+			elif command -v dnf >/dev/null 2>&1; then
+				export PACKAGE_MANAGER="dnf"
+			elif command -v pacman >/dev/null 2>&1; then
+				export PACKAGE_MANAGER="pacman"
+			else
+				error "Unsupported distribution: $ID"
+			fi
+			;;
+		esac
+	else
+		error "Cannot determine distribution type"
+	fi
+
+	info "Detected package manager: $PACKAGE_MANAGER"
+	return 0
+}
 
 # Install a package using the appropriate package manager
 package_install() {
@@ -60,37 +172,22 @@ package_install() {
 
 	# Detect package manager if not already set
 	if [ -z "${PACKAGE_MANAGER:-}" ]; then
-		if [ -f /etc/os-release ]; then
-			. /etc/os-release
-			if [ "$ID" = "debian" ] || [ "$ID" = "ubuntu" ] || [ "$ID" = "raspbian" ]; then
-				PACKAGE_MANAGER="apt"
-			elif [ "$ID" = "fedora" ] || [ "$ID" = "rhel" ] || [ "$ID" = "centos" ]; then
-				PACKAGE_MANAGER="dnf"
-			elif [ "$ID" = "arch" ] || [ "$ID" = "manjaro" ]; then
-				PACKAGE_MANAGER="pacman"
-			elif command -v apt >/dev/null 2>&1; then
-				PACKAGE_MANAGER="apt"
-			elif command -v dnf >/dev/null 2>&1; then
-				PACKAGE_MANAGER="dnf"
-			elif command -v pacman >/dev/null 2>&1; then
-				PACKAGE_MANAGER="pacman"
-			else
-				error "Unsupported distribution for package installation"
-			fi
-		else
-			error "Cannot determine distribution type for package installation"
-		fi
+		detect_package_manager
 	fi
 
 	case "$PACKAGE_MANAGER" in
+	brew)
+		brew install "$package_name"
+		;;
 	apt)
-		sudo apt install -y "$package_name"
+		sudo apt-get update
+		sudo apt-get install -y "$package_name"
 		;;
 	dnf)
 		sudo dnf install -y "$package_name"
 		;;
 	pacman)
-		sudo pacman -S --noconfirm "$package_name"
+		sudo pacman -Sy --noconfirm "$package_name"
 		;;
 	*)
 		error "Unsupported package manager: $PACKAGE_MANAGER"
@@ -120,10 +217,10 @@ ensure_dir_permissions() {
 	sudo mkdir -p "$dir"
 	if [ "$recursive" = "true" ]; then
 		sudo chmod -R "$perms" "$dir"
-		sudo chown -R root:staff "$dir"
+		sudo chown -R root:$ADMIN_GROUP "$dir"
 	else
 		sudo chmod "$perms" "$dir"
-		sudo chown root:staff "$dir"
+		sudo chown root:$ADMIN_GROUP "$dir"
 	fi
 }
 
@@ -136,7 +233,7 @@ create_managed_symlink() {
 	local target="$2"
 
 	sudo ln -sf "$src" "$target"
-	sudo chown -h root:staff "$target"
+	sudo chown -h root:$ADMIN_GROUP "$target"
 }
 
 ###############################################################################
@@ -170,6 +267,32 @@ compare_versions() {
 		fi
 	done
 	return 2
+}
+
+# Get the currently installed version of a tool
+# Args:
+#   $1: Binary name
+#   $2: Version command (e.g., --version)
+get_installed_version() {
+	local binary="$1"
+	local version_cmd="$2"
+
+	if command -v "$binary" >/dev/null 2>&1; then
+		# Try to extract version number from output
+		local version_output=$("$binary" $version_cmd 2>&1 | head -n1)
+
+		# Extract version number using regex patterns for common formats
+		local version=$(echo "$version_output" | grep -o -E '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)
+
+		if [[ -z "$version" ]]; then
+			# Try alternative pattern for version extraction
+			version=$(echo "$version_output" | grep -o -E 'version [0-9]+\.[0-9]+(\.[0-9]+)?' | grep -o -E '[0-9]+\.[0-9]+(\.[0-9]+)?')
+		fi
+
+		echo "$version"
+	else
+		echo ""
+	fi
 }
 
 ###############################################################################
@@ -226,7 +349,7 @@ parse_tool_config() {
 # Repository Management
 ###############################################################################
 
-# Configure Git to trust a repository directory
+# Configure Git to trust a repository directory - using a safer approach
 # Args:
 #   $1: Repository directory
 configure_git_trust() {
@@ -237,12 +360,16 @@ configure_git_trust() {
 		return 1
 	fi
 
-	# Add directory to git safe.directory config
-	sudo git config --global --add safe.directory "$repo_dir"
+	# Use a local .git/config instead of global config
+	(cd "$repo_dir" && sudo git config --local --bool core.trustctime false)
 
-	# Verify trust was added
+	# Make the repo directory writable by the git process
+	sudo chmod -R g+w "$repo_dir"
+
+	# Set ownership to ensure git can write to the repo
+	sudo chown -R root:$ADMIN_GROUP "$repo_dir"
+
 	info "Added Git trust for repository: $repo_dir"
-
 	return 0
 }
 
@@ -258,7 +385,7 @@ setup_tool_repo() {
 	# Create cache directory if it doesn't exist
 	if [ ! -d "$CACHE_DIR" ]; then
 		sudo mkdir -p "$CACHE_DIR"
-		sudo chown root:staff "$CACHE_DIR"
+		sudo chown root:$ADMIN_GROUP "$CACHE_DIR"
 		sudo chmod 775 "$CACHE_DIR"
 	fi
 
@@ -267,28 +394,36 @@ setup_tool_repo() {
 
 	if [ ! -d "$cache_dir/.git" ]; then
 		info "Cloning $tool_name repository..."
-		# Clone as sudo but ensure proper permissions afterward
-		sudo -u root git clone "$repo_url" "$cache_dir" || error "Failed to clone repository"
-		sudo chown -R root:staff "$cache_dir"
-		sudo chmod -R 775 "$cache_dir"
+		# Clone into a temporary directory first
+		local temp_dir=$(mktemp -d)
+		if git clone "$repo_url" "$temp_dir"; then
+			# Move to final location using sudo
+			sudo mv "$temp_dir"/* "$cache_dir"
+			sudo mv "$temp_dir"/.[!.]* "$cache_dir" 2>/dev/null || true
+			rmdir "$temp_dir"
+			sudo chown -R root:$ADMIN_GROUP "$cache_dir"
+			sudo chmod -R 775 "$cache_dir"
+		else
+			error "Failed to clone repository"
+		fi
 	else
 		info "Updating $tool_name repository..."
 		# Make sure git trusts this directory
 		configure_git_trust "$cache_dir"
 
 		# Reset repository to clean state
-		(cd "$cache_dir" && sudo -u root git reset --hard) || warn "Failed to reset repository"
-		(cd "$cache_dir" && sudo -u root git clean -fd) || warn "Failed to clean repository"
+		(cd "$cache_dir" && sudo git reset --hard) || warn "Failed to reset repository"
+		(cd "$cache_dir" && sudo git clean -fd) || warn "Failed to clean repository"
 
 		# Fetch updates
-		(cd "$cache_dir" && sudo -u root git fetch) || error "Failed to update repository"
+		(cd "$cache_dir" && sudo git fetch) || error "Failed to update repository"
 	fi
 
 	# Always ensure the repository is trusted after operations
 	configure_git_trust "$cache_dir"
 
 	# Ensure proper permissions
-	sudo chown -R root:staff "$cache_dir"
+	sudo chown -R root:$ADMIN_GROUP "$cache_dir"
 	sudo chmod -R 775 "$cache_dir"
 
 	echo "$cache_dir"
@@ -324,12 +459,19 @@ configure_build_flags() {
 	local cpu_count
 	if command -v nproc >/dev/null 2>&1; then
 		cpu_count=$(nproc)
+	elif [ "$OS_TYPE" = "macos" ] && command -v sysctl >/dev/null 2>&1; then
+		cpu_count=$(sysctl -n hw.ncpu)
 	else
-		cpu_count=2 # Default to 2 if nproc is not available
+		cpu_count=2 # Default to 2 if detection fails
 	fi
 
 	# Use one less than available cores to prevent system lockup
-	export MAKE_FLAGS="-j$((cpu_count - 1))"
+	# But ensure at least 1 job
+	local jobs=$((cpu_count - 1))
+	[ "$jobs" -lt 1 ] && jobs=1
+
+	export MAKE_FLAGS="-j$jobs"
+	info "Build parallelism set to $jobs jobs"
 }
 
 ###############################################################################
@@ -384,12 +526,55 @@ install_or_update_tool() {
 		return $?
 		;;
 	stable | head)
-		if [ -x "$BASE_DIR/bin/$binary" ]; then
-			info "$tool_name is already installed, checking for updates..."
+		# Check if already installed
+		local current_version=""
+		if command -v "$BASE_DIR/bin/$binary" >/dev/null 2>&1; then
+			current_version=$(get_installed_version "$BASE_DIR/bin/$binary" "$version_cmd")
+			info "$tool_name is already installed (version: $current_version), checking for updates..."
 		fi
 
-		# Build from source - call the function passed as parameter
-		$build_func "$repo_dir" "$TOOL_VERSION_TYPE"
+		# For head version or when current_version is empty, always build
+		local should_build=0
+		if [ "$TOOL_VERSION_TYPE" = "head" ]; then
+			should_build=1
+			info "Building head version as configured"
+		elif [ -z "$current_version" ]; then
+			should_build=1
+			info "No current version detected, building..."
+		else
+			# For stable version, check if newer version available
+			local target_version=$(get_target_version "$repo_dir" "$TOOL_VERSION_TYPE")
+
+			if [ -n "$target_version" ]; then
+				# Strip 'v' prefix for comparison if present
+				target_version=${target_version#v}
+				current_version=${current_version#v}
+
+				# Compare versions
+				compare_versions "$target_version" "$current_version"
+				local comp_result=$?
+
+				if [ $comp_result -eq 0 ]; then
+					should_build=1
+					info "Newer version available: $target_version (current: $current_version)"
+				elif [ $comp_result -eq 2 ]; then
+					info "Already at latest version: $current_version"
+				else
+					warn "Current version ($current_version) is newer than target ($target_version). Strange!"
+					# Build anyway to ensure consistency
+					should_build=1
+				fi
+			else
+				# If we can't determine target version, build anyway
+				should_build=1
+				info "Could not determine target version, building anyway"
+			fi
+		fi
+
+		if [ $should_build -eq 1 ]; then
+			# Build from source - call the function passed as parameter
+			$build_func "$repo_dir" "$TOOL_VERSION_TYPE"
+		fi
 		;;
 	*)
 		error "Invalid version type: $TOOL_VERSION_TYPE"
@@ -397,5 +582,13 @@ install_or_update_tool() {
 	esac
 }
 
-# Export the PACKAGE_MANAGER variable for other scripts
-export PACKAGE_MANAGER
+# Initialize common variables
+init_common_vars
+
+# Detect package manager if we're running in a full script context
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	detect_package_manager
+fi
+
+# Export variables for other scripts
+export PACKAGE_MANAGER OS_TYPE ADMIN_GROUP BASE_DIR

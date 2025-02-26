@@ -1,29 +1,24 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# Bat Installation Script
+# TOOL_NAME Installation Script
 #
 # Purpose:
-# Installs or updates the bat utility (https://github.com/sharkdp/bat)
-# A cat clone with syntax highlighting and Git integration
+# Installs or updates TOOL_NAME (URL)
+# Brief description of what the tool does
 #
 # Dependencies:
-# - Rust toolchain (automatically managed)
-# - Basic build tools (cmake, pkg-config)
-#
-# Platform-specific notes:
-# - On Debian-based systems, creates bat -> batcat symlink
-# - On macOS, uses Homebrew if available
+# - List dependencies here
 ###############################################################################
 
 # Source common functions
 source "$(dirname "$0")/../common.sh"
 
 # Tool-specific configuration
-TOOL_NAME="bat"
-REPO_URL="https://github.com/sharkdp/bat"
-BINARY="bat"
-VERSION_CMD="--version"
+TOOL_NAME="tool-name"
+REPO_URL="https://github.com/user/repo"
+BINARY="binary-name"
+VERSION_CMD="--version" # or -v, -V, etc.
 
 ###############################################################################
 # Installation Functions
@@ -34,22 +29,22 @@ install_deps() {
 
 	case "$PACKAGE_MANAGER" in
 	brew)
-		brew install cmake pkg-config
+		brew install dependency1 dependency2
 		;;
 	apt)
 		sudo apt-get update
-		sudo apt-get install -y cmake pkg-config libssl-dev
+		sudo apt-get install -y dependency1 dependency2
 		;;
 	dnf)
-		sudo dnf install -y cmake pkg-config openssl-devel
+		sudo dnf install -y dependency1 dependency2
 		;;
 	pacman)
-		sudo pacman -Sy --noconfirm cmake pkg-config openssl
+		sudo pacman -Sy --noconfirm dependency1 dependency2
 		;;
 	*)
 		warn "Unknown package manager: $PACKAGE_MANAGER, trying to install dependencies manually"
-		package_install "cmake"
-		package_install "pkg-config"
+		package_install "dependency1"
+		package_install "dependency2"
 		;;
 	esac
 }
@@ -59,29 +54,17 @@ install_via_package_manager() {
 
 	case "$PACKAGE_MANAGER" in
 	brew)
-		brew install bat
+		brew install tool-name
 		;;
 	apt)
 		sudo apt-get update
-		sudo apt-get install -y bat
-
-		# On Debian/Ubuntu the package might be called batcat
-		if ! command -v bat >/dev/null 2>&1 && command -v batcat >/dev/null 2>&1; then
-			info "bat installed as batcat, creating symlink"
-			# Create symlink in user's bin directory
-			mkdir -p "$HOME/.local/bin"
-			ln -sf "$(which batcat)" "$HOME/.local/bin/bat"
-			export PATH="$HOME/.local/bin:$PATH"
-
-			# Also create system-wide symlink
-			create_managed_symlink "$(which batcat)" "$BASE_DIR/bin/bat"
-		fi
+		sudo apt-get install -y tool-name
 		;;
 	dnf)
-		sudo dnf install -y bat
+		sudo dnf install -y tool-name
 		;;
 	pacman)
-		sudo pacman -Sy --noconfirm bat
+		sudo pacman -Sy --noconfirm tool-name
 		;;
 	*)
 		warn "Unknown package manager: $PACKAGE_MANAGER, cannot install via package manager"
@@ -90,7 +73,7 @@ install_via_package_manager() {
 	esac
 
 	# Check if installation succeeded
-	if command -v bat >/dev/null 2>&1 || command -v batcat >/dev/null 2>&1; then
+	if command -v $BINARY >/dev/null 2>&1; then
 		return 0
 	else
 		return 1
@@ -136,20 +119,17 @@ build_tool() {
 	fi
 
 	info "Building $TOOL_NAME..."
-	# Configure build flags for Rust
+
+	# TOOL-SPECIFIC BUILD STEPS GO HERE
+	# Example for Rust project:
 	configure_build_flags
 	export CARGO_BUILD_JOBS="${MAKE_FLAGS#-j}"
-
-	# Build with cargo
 	sudo -E env CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" cargo build --release || error "Failed to build"
 
 	info "Installing $TOOL_NAME..."
-	sudo install -m755 target/release/bat "$BASE_DIR/bin/" || error "Failed to install"
-
-	# Create bat -> batcat symlink if using Debian-based system
-	if [ "$PACKAGE_MANAGER" = "apt" ]; then
-		create_managed_symlink "$BASE_DIR/bin/bat" "$BASE_DIR/bin/batcat"
-	fi
+	# TOOL-SPECIFIC INSTALL STEPS GO HERE
+	# Example:
+	sudo install -m755 target/release/$BINARY "$BASE_DIR/bin/" || error "Failed to install"
 
 	return 0
 }
@@ -160,6 +140,9 @@ build_tool() {
 
 main() {
 	info "Starting installation of $TOOL_NAME..."
+
+	# Parse tool configuration
+	parse_tool_config "$TOOL_NAME"
 
 	# Detect if we should use package manager
 	local use_pkg_manager=0
@@ -192,22 +175,7 @@ main() {
 	build_tool "$REPO_DIR" "$TOOL_VERSION_TYPE"
 
 	info "$TOOL_NAME installation completed successfully"
-
-	# If bat-extras is required, set up for it
-	if grep -q "^bat-extras=" "$TOOLS_CONF" 2>/dev/null; then
-		info "bat-extras is configured, ensuring bat cache is built..."
-
-		# Build the syntax highlighting cache
-		if command -v bat >/dev/null 2>&1; then
-			bat cache --build >/dev/null 2>&1 || warn "Failed to build bat cache"
-		elif command -v batcat >/dev/null 2>&1; then
-			batcat cache --build >/dev/null 2>&1 || warn "Failed to build bat cache"
-		fi
-	fi
 }
-
-# Parse tool configuration
-parse_tool_config "$TOOL_NAME"
 
 # Run the main installation
 main
