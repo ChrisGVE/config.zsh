@@ -283,7 +283,7 @@ HISTORY_SUBSTRING_SEARCH_PREFIXED=1
 ####################
 # ZOXIDE CONFIGURATION 
 ####################
-# Safely implement zoxide functionality
+# Safely implement zoxide functionality with backwards compatibility
 if command -v zoxide >/dev/null 2>&1; then
     # Save the original cd function
     if ! function_exists _orig_cd; then
@@ -292,9 +292,14 @@ if command -v zoxide >/dev/null 2>&1; then
         }
     fi
     
-    # Initialize zoxide but don't override cd yet
-    if ! function_exists __zoxide_z; then
+    # First check if the installed zoxide version supports --no-cmd
+    if zoxide init zsh --help 2>&1 | grep -q -- "--no-cmd"; then
+        # Newer version - initialize zoxide without overriding cd
         eval "$(zoxide init zsh --hook pwd --no-cmd)"
+    else
+        # Older version - initialize zoxide normally and then override its cd function
+        eval "$(zoxide init zsh --hook pwd)"
+        # Immediately redefine the cd function to our version
     fi
     
     # Create our own implementation of cd that uses zoxide
@@ -303,8 +308,14 @@ if command -v zoxide >/dev/null 2>&1; then
             # cd with no args goes to $HOME
             _orig_cd "$HOME"
         elif [[ "$#" -eq 1 && "$1" != "-"* && ! -d "$1" ]]; then
-            # Use zoxide to jump to directory if it's not a direct path and not an option like -P
-            __zoxide_z "$1"
+            # For directories that don't exist locally, try zoxide
+            # Use __zoxide_z directly if it exists, otherwise the z command
+            if function_exists __zoxide_z; then
+                __zoxide_z "$1"
+            else
+                # Fall back to external z command if function doesn't exist
+                command z "$1"
+            fi
         else
             # Use builtin cd for all other cases
             _orig_cd "$@"
@@ -313,11 +324,15 @@ if command -v zoxide >/dev/null 2>&1; then
     
     # Provide zi as shortcut for zoxide interactive
     function zi() {
-        local result=$(zoxide query -i -- "$@")
+        local result
+        result=$(zoxide query -i -- "$@")
         if [[ -n "$result" ]]; then
             _orig_cd "$result"
         fi
     }
+    
+    # Provide a raw cd command that bypasses zoxide
+    alias rawcd="_orig_cd"
 fi
 
 ####################
