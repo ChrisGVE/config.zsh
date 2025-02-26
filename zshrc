@@ -3,6 +3,9 @@
 # For profiling, uncomment:
 # zmodload zsh/zprof
 
+# Increase function nesting limit to prevent "maximum nested function level reached" errors
+FUNCNEST=100
+
 ####################
 # DETECT OS
 ####################
@@ -46,33 +49,14 @@ export COMPLETION_WAITING_DOTS="true"
 export ZSH_CUSTOM=$XDG_CONFIG_HOME/zsh/custom
 export ZSH="$ZDOTDIR/ohmyzsh"
 
-# Safety limit for function nesting depth (fixes maximum nested function level reached error)
-FUNCNEST=100
-
-####################
-# TOOL EXPORTS
-####################
-# Colorize settings
-export ZSH_COLORIZE_TOOL=chroma
-export ZSH_COLORIZE_STYLE="colorful"
-export ZSH_COLORIZE_CHROMA_FORMATTER="terminal16m"
-
-# FZF configuration
-export FZF_COMPLETION_TRIGGER='**'
-export FZF_COMPLETION_OPTS='--border --info=inline'
-export FZF_COMPLETION_PATH_OPTS='--walker file,dir,follow,hidden'
-export FZF_COMPLETION_DIR_OPTS='--walker dir,follow'
-
-# Task warrior
-export TASKRC=$XDG_CONFIG_HOME/task/taskrc
-export TASKDATA=$XDG_DATA_HOME/tasks task list
-
-# Go toolchain
-export GOTOOLCHAIN=local
-
 ####################
 # HELPER FUNCTIONS
 ####################
+function_exists() {
+    declare -f -F $1 > /dev/null
+    return $?
+}
+
 _source_if_exists() {
     if [[ -f "$1" ]]; then
         source "$1"
@@ -265,11 +249,16 @@ if [[ -d "$ZSH" ]]; then
     plugins=(git history-substring-search)
     source $ZSH/oh-my-zsh.sh
 else
-    warn "Oh My Zsh not found at $ZSH. Basic configuration will be used."
     # Basic history configuration without Oh My Zsh
+    autoload -U compinit && compinit
+    
+    # We need to define history-substring-search manually
+    autoload -U history-substring-search-up
+    autoload -U history-substring-search-down
+    zle -N history-substring-search-up
+    zle -N history-substring-search-down
     bindkey '^[[A' history-substring-search-up
     bindkey '^[[B' history-substring-search-down
-    autoload -U compinit && compinit
 fi
 
 ####################
@@ -292,21 +281,50 @@ setopt HIST_VERIFY
 HISTORY_SUBSTRING_SEARCH_PREFIXED=1
 
 ####################
+# ZOXIDE CONFIGURATION 
+####################
+# Safely implement zoxide functionality
+if command -v zoxide >/dev/null 2>&1; then
+    # Save the original cd function
+    if ! function_exists _orig_cd; then
+        function _orig_cd() {
+            builtin cd "$@"
+        }
+    fi
+    
+    # Initialize zoxide but don't override cd yet
+    if ! function_exists __zoxide_z; then
+        eval "$(zoxide init zsh --hook pwd --no-cmd)"
+    fi
+    
+    # Create our own implementation of cd that uses zoxide
+    function cd() {
+        if [[ "$#" -eq 0 ]]; then
+            # cd with no args goes to $HOME
+            _orig_cd "$HOME"
+        elif [[ "$#" -eq 1 && "$1" != "-"* && ! -d "$1" ]]; then
+            # Use zoxide to jump to directory if it's not a direct path and not an option like -P
+            __zoxide_z "$1"
+        else
+            # Use builtin cd for all other cases
+            _orig_cd "$@"
+        fi
+    }
+    
+    # Provide zi as shortcut for zoxide interactive
+    function zi() {
+        local result=$(zoxide query -i -- "$@")
+        if [[ -n "$result" ]]; then
+            _orig_cd "$result"
+        fi
+    }
+fi
+
+####################
 # VI MODE AND CURSOR CONFIGURATION
 ####################
 # Set up initial vi mode state
 export POSH_VI_MODE="INSERT"
-
-# Initialize zsh-vi-mode
-ZVM_PATH=$(_find_plugin "zsh-vi-mode" "zsh-vi-mode.plugin.zsh")
-if [[ -n "$ZVM_PATH" ]]; then
-    source "$ZVM_PATH"
-else
-    # Basic vi mode if plugin not available
-    bindkey -v
-    # Make Vi mode transitions faster
-    export KEYTIMEOUT=1
-fi
 
 # Flag to prevent recursive calls to _update_vim_mode
 typeset -g VIM_MODE_UPDATING=0
@@ -335,8 +353,10 @@ function _update_vim_mode() {
     
     if [[ -n "$POSH_SHELL_VERSION" ]]; then
         if command -v oh-my-posh >/dev/null 2>&1; then
-            PROMPT="$(oh-my-posh prompt print primary --config="$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" --shell=zsh)"
-            zle && zle reset-prompt
+            if [[ -f "$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" ]]; then
+                PROMPT="$(oh-my-posh prompt print primary --config="$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" --shell=zsh)"
+                zle && zle reset-prompt
+            fi
         fi
     fi
     
@@ -344,8 +364,12 @@ function _update_vim_mode() {
     VIM_MODE_UPDATING=0
 }
 
-# Define mode switching function if zsh-vi-mode is available
+# Initialize zsh-vi-mode
+ZVM_PATH=$(_find_plugin "zsh-vi-mode" "zsh-vi-mode.plugin.zsh")
 if [[ -n "$ZVM_PATH" ]]; then
+    source "$ZVM_PATH"
+    
+    # Define mode switching function
     function zvm_after_select_vi_mode() {
         case $ZVM_MODE in
             $ZVM_MODE_NORMAL)
@@ -365,30 +389,8 @@ if [[ -n "$ZVM_PATH" ]]; then
                 ;;
         esac
     }
-fi
-
-# Set up line init handler
-function zle-line-init() {
-    _update_vim_mode "INSERT"
-    zle -K viins # Ensure we're in insert mode
-}
-zle -N zle-line-init
-
-# Set up keymap handler
-function zle-keymap-select() {
-    case ${KEYMAP} in
-        vicmd)
-            _update_vim_mode "NORMAL"
-            ;;
-        main|viins)
-            _update_vim_mode "INSERT"
-            ;;
-    esac
-}
-zle -N zle-keymap-select
-
-# Handle key bindings after vi-mode initialization
-if [[ -n "$ZVM_PATH" ]]; then
+    
+    # Handle key bindings after vi-mode initialization
     function zvm_after_init() {
         # Set initial cursor shape
         echo -ne '\e[5 q'
@@ -405,16 +407,41 @@ if [[ -n "$ZVM_PATH" ]]; then
         bindkey -M viins '^p' reverse-menu-complete
     }
 else
+    # Basic vi mode if plugin not available
+    bindkey -v
+    # Make Vi mode transitions faster
+    export KEYTIMEOUT=1
+    
     # Setup similar keybindings without zsh-vi-mode
     bindkey '^n' expand-or-complete
     bindkey '^p' reverse-menu-complete
-fi
+    
+    # Set up line init handler
+    function zle-line-init() {
+        _update_vim_mode "INSERT"
+        zle -K viins # Ensure we're in insert mode
+    }
+    zle -N zle-line-init
 
-# Reset cursor on exit
-function zle-line-finish() {
-    echo -ne '\e[5 q'
-}
-zle -N zle-line-finish
+    # Set up keymap handler
+    function zle-keymap-select() {
+        case ${KEYMAP} in
+            vicmd)
+                _update_vim_mode "NORMAL"
+                ;;
+            main|viins)
+                _update_vim_mode "INSERT"
+                ;;
+        esac
+    }
+    zle -N zle-keymap-select
+    
+    # Reset cursor on exit
+    function zle-line-finish() {
+        echo -ne '\e[5 q'
+    }
+    zle -N zle-line-finish
+fi
 
 ####################
 # OH-MY-POSH CONFIGURATION
@@ -483,21 +510,6 @@ if command -v fzf >/dev/null 2>&1; then
         --color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 \
         --color=selected-bg:#45475a \
         --multi"
-    fi
-fi
-
-# Setup zoxide with custom cd handling
-# NOTE: We use a function instead of eval to avoid recursion
-function_exists() {
-    declare -f -F $1 > /dev/null
-    return $?
-}
-
-if command -v zoxide >/dev/null 2>&1; then
-    # Only initialize zoxide if it hasn't been initialized already
-    if ! function_exists __zoxide_zi; then
-        # Initialize with hook=pwd and cmd=cd
-        eval "$(zoxide init zsh --hook pwd --cmd cd)"
     fi
 fi
 
@@ -593,6 +605,9 @@ alias tmux_main="tmux new-session -ADs main"
 # File operation aliases
 alias zcp='zmv -C'
 alias zln='zmv -L'
+
+# Provide a raw cd command that bypasses zoxide
+alias rawcd="_orig_cd"
 
 # Bat configuration
 if [[ -n "$BAT_CMD" ]]; then
