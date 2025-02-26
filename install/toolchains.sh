@@ -501,31 +501,24 @@ install_perl() {
 # Ruby Management
 ###############################################################################
 
-install_ruby() {
-	local ruby_dir="$BASE_DIR/share/dev/toolchains/ruby"
+install_ruby_deps() {
+	info "Installing Ruby build dependencies..."
 
-	info "Processing Ruby toolchain..."
-
-	# Detect the desired Ruby version - use a more recent version
-	local target_version="3.4.2" # Latest stable version
-
-	# Check if we already have Ruby installed from source at the target version
-	if [ -f "$ruby_dir/bin/ruby" ]; then
-		local installed_version=$("$ruby_dir/bin/ruby" -e 'puts RUBY_VERSION' 2>/dev/null || echo "")
-
-		if [ "$installed_version" = "$target_version" ]; then
-			info "Ruby $target_version is already installed at $ruby_dir"
-			TOOLCHAIN_STATES["ruby"]="current"
-			TOOLCHAIN_VERSIONS["ruby"]="$target_version"
-			return 0
-		else
-			info "Upgrading Ruby from $installed_version to $target_version"
-		fi
-	fi
-
-	# Always prefer source installation for Ruby to get the latest version
-	info "Installing Ruby $target_version from source..."
-	install_ruby_from_source "$ruby_dir" "$target_version"
+	case "$PACKAGE_MANAGER" in
+	brew)
+		brew install openssl readline libffi libyaml
+		;;
+	apt)
+		sudo apt-get update
+		sudo apt-get install -y build-essential libssl-dev libreadline-dev zlib1g-dev libffi-dev libyaml-dev
+		;;
+	dnf)
+		sudo dnf install -y gcc make openssl-devel readline-devel zlib-devel libffi-devel libyaml-devel
+		;;
+	pacman)
+		sudo pacman -Sy --noconfirm base-devel openssl readline zlib libffi libyaml
+		;;
+	esac
 }
 
 # Function to install Ruby from source
@@ -537,21 +530,7 @@ install_ruby_from_source() {
 	info "Installing Ruby $target_version from source..."
 
 	# Install build dependencies first
-	case "$PACKAGE_MANAGER" in
-	brew)
-		brew install openssl readline
-		;;
-	apt)
-		sudo apt-get update
-		sudo apt-get install -y build-essential libssl-dev libreadline-dev zlib1g-dev
-		;;
-	dnf)
-		sudo dnf install -y gcc make openssl-devel readline-devel zlib-devel
-		;;
-	pacman)
-		sudo pacman -Sy --noconfirm base-devel openssl readline zlib
-		;;
-	esac
+	install_ruby_deps
 
 	# Download Ruby source
 	curl -L "https://cache.ruby-lang.org/pub/ruby/${target_version%.*}/ruby-${target_version}.tar.gz" -o "$tmp_dir/ruby.tar.gz"
@@ -565,8 +544,30 @@ install_ruby_from_source() {
 	# Extract and build
 	cd "$tmp_dir" && tar -xzf ruby.tar.gz && cd "ruby-${target_version}"
 
+	# Find OpenSSL installation
+	local openssl_dir=""
+	if command -v openssl >/dev/null 2>&1; then
+		if openssl version -d 2>/dev/null | grep -q "OPENSSLDIR"; then
+			openssl_dir=$(openssl version -d | cut -d'"' -f2)
+		fi
+	fi
+
+	# Configure with proper flags
+	local config_flags="--prefix=$ruby_dir"
+	if [ -n "$openssl_dir" ]; then
+		config_flags="$config_flags --with-openssl-dir=$openssl_dir"
+	fi
+
+	# Add libffi flags if available
+	if pkg-config --exists libffi; then
+		local libffi_cflags=$(pkg-config --cflags libffi)
+		local libffi_libs=$(pkg-config --libs libffi)
+		export CFLAGS="$CFLAGS $libffi_cflags"
+		export LDFLAGS="$LDFLAGS $libffi_libs"
+	fi
+
 	# Configure and build Ruby
-	./configure --prefix="$ruby_dir" --with-openssl-dir=$(command -v openssl >/dev/null && openssl version -d | cut -d' ' -f2 | tr -d '"') && make && sudo make install
+	./configure $config_flags && make && sudo make install
 	local build_status=$?
 
 	# Create symlinks if build was successful
@@ -577,7 +578,7 @@ install_ruby_from_source() {
 		create_managed_symlink "$ruby_dir/bin/irb" "$BASE_DIR/bin/irb"
 
 		TOOLCHAIN_STATES["ruby"]="installed"
-		TOOLCHAIN_VERSIONS["ruby"]=$(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "$target_version")
+		TOOLCHAIN_VERSIONS["ruby"]=$("$ruby_dir/bin/ruby" -e 'puts RUBY_VERSION' 2>/dev/null || echo "$target_version")
 		info "Ruby $target_version successfully installed from source"
 	else
 		TOOLCHAIN_STATES["ruby"]="failed"
@@ -624,6 +625,7 @@ install_ruby_from_source() {
 	# Clean up
 	rm -rf "$tmp_dir"
 }
+
 ###############################################################################
 # Summary Report
 ###############################################################################

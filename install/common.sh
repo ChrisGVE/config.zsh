@@ -389,42 +389,59 @@ setup_tool_repo() {
 		sudo chmod 775 "$CACHE_DIR"
 	fi
 
-	# Ensure cache directory exists with proper permissions
-	ensure_dir_permissions "$cache_dir"
-
-	if [ ! -d "$cache_dir/.git" ]; then
+	# Check if repository directory exists
+	if [ ! -d "$cache_dir" ]; then
 		info "Cloning $tool_name repository..."
 		# Clone into a temporary directory first
 		local temp_dir=$(mktemp -d)
 		if git clone "$repo_url" "$temp_dir"; then
-			# Move to final location using sudo
-			sudo mv "$temp_dir"/* "$cache_dir"
-			sudo mv "$temp_dir"/.[!.]* "$cache_dir" 2>/dev/null || true
-			rmdir "$temp_dir"
+			# Create the target directory
+			sudo mkdir -p "$cache_dir"
+			sudo chown root:$ADMIN_GROUP "$cache_dir"
+			sudo chmod 775 "$cache_dir"
+
+			# Move content to final location using sudo
+			sudo cp -a "$temp_dir/." "$cache_dir/"
+			rm -rf "$temp_dir"
+
+			# Ensure proper permissions
 			sudo chown -R root:$ADMIN_GROUP "$cache_dir"
 			sudo chmod -R 775 "$cache_dir"
 		else
-			error "Failed to clone repository"
+			error "Failed to clone repository: $repo_url"
+			rm -rf "$temp_dir"
+			return 1
 		fi
 	else
 		info "Updating $tool_name repository..."
-		# Make sure git trusts this directory
-		configure_git_trust "$cache_dir"
 
-		# Reset repository to clean state
-		(cd "$cache_dir" && sudo git reset --hard) || warn "Failed to reset repository"
+		# Always create fresh .git/config to avoid issues with safe.directory
+		if [ -f "$cache_dir/.git/config" ]; then
+			sudo rm -f "$cache_dir/.git/config"
+			(cd "$cache_dir" && sudo git init -q)
+			(cd "$cache_dir" && sudo git remote add origin "$repo_url")
+		fi
+
+		# Configure git trust for this repository
+		(cd "$cache_dir" && sudo git config --local --bool core.trustctime false)
+		(cd "$cache_dir" && sudo git config --local --bool core.filemode false)
+
+		# Set permissions for git operations
+		sudo chmod -R g+w "$cache_dir"
+
+		# Clean and reset the repository
 		(cd "$cache_dir" && sudo git clean -fd) || warn "Failed to clean repository"
+		(cd "$cache_dir" && sudo git reset --hard) || warn "Failed to reset repository"
 
 		# Fetch updates
 		(cd "$cache_dir" && sudo git fetch) || error "Failed to update repository"
 	fi
 
-	# Always ensure the repository is trusted after operations
-	configure_git_trust "$cache_dir"
-
-	# Ensure proper permissions
-	sudo chown -R root:$ADMIN_GROUP "$cache_dir"
-	sudo chmod -R 775 "$cache_dir"
+	# Final verification
+	if [ ! -d "$cache_dir/.git" ]; then
+		error "Repository setup failed: $cache_dir is not a git repository"
+		return 1
+	fi
 
 	echo "$cache_dir"
 }
@@ -453,6 +470,49 @@ get_target_version() {
 ###############################################################################
 # Build Management
 ###############################################################################
+
+# Function to ensure Rust/Cargo is available before building
+ensure_rust_available() {
+	# Check if cargo is in PATH
+	if ! command -v cargo >/dev/null 2>&1; then
+		info "Cargo not found in PATH, checking for Rust installation..."
+
+		# Check for Rust in our toolchain location
+		local rust_cargo="$BASE_DIR/share/dev/toolchains/rust/cargo/bin/cargo"
+
+		if [ -f "$rust_cargo" ]; then
+			info "Found Cargo at $rust_cargo, adding to PATH"
+			export PATH="$BASE_DIR/share/dev/toolchains/rust/cargo/bin:$PATH"
+			export RUSTUP_HOME="$BASE_DIR/share/dev/toolchains/rust/rustup"
+			export CARGO_HOME="$BASE_DIR/share/dev/toolchains/rust/cargo"
+		else
+			# Rust isn't installed or isn't in PATH, try to install it
+			info "Rust not found in expected location, attempting installation..."
+
+			# Source toolchains.sh to get install_rust function
+			if [ -f "$CONFIG_DIR/toolchains.sh" ]; then
+				source "$CONFIG_DIR/toolchains.sh"
+				install_rust || error "Failed to install Rust"
+
+				# Add newly installed Rust to PATH
+				export PATH="$BASE_DIR/share/dev/toolchains/rust/cargo/bin:$PATH"
+				export RUSTUP_HOME="$BASE_DIR/share/dev/toolchains/rust/rustup"
+				export CARGO_HOME="$BASE_DIR/share/dev/toolchains/rust/cargo"
+			else
+				error "Cannot find toolchains.sh to install Rust"
+			fi
+		fi
+	fi
+
+	# Final verification
+	if ! command -v cargo >/dev/null 2>&1; then
+		error "Cargo still not available in PATH after setup attempts"
+		return 1
+	fi
+
+	info "Rust/Cargo is available: $(cargo --version)"
+	return 0
+}
 
 # Configure build flags
 configure_build_flags() {

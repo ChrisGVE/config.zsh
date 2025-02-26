@@ -150,66 +150,26 @@ setup_user_themes() {
 	# Create user themes directory
 	mkdir -p "$user_themes_dir"
 
-	# Copy a default theme to user config if needed
-	if [ ! -f "$user_themes_dir/config.yml" ]; then
-		if [ -d "$system_themes_dir" ] && [ -f "$system_themes_dir/catppuccin_mocha.omp.json" ]; then
+	# Copy a default theme to user config only if needed and system themes exist
+	if [ ! -f "$user_themes_dir/config.yml" ] && [ -d "$system_themes_dir" ]; then
+		if [ -f "$system_themes_dir/catppuccin_mocha.omp.json" ]; then
 			cp "$system_themes_dir/catppuccin_mocha.omp.json" "$user_themes_dir/config.yml"
 			info "Default theme copied to $user_themes_dir/config.yml"
+		elif [ -f "$system_themes_dir/atomic.omp.json" ]; then
+			cp "$system_themes_dir/atomic.omp.json" "$user_themes_dir/config.yml"
+			info "Default theme copied to $user_themes_dir/config.yml"
+		elif [ "$(ls -A "$system_themes_dir")" ]; then
+			# If any themes exist, copy the first one found
+			first_theme=$(ls -1 "$system_themes_dir"/*.json | head -1)
+			if [ -n "$first_theme" ]; then
+				cp "$first_theme" "$user_themes_dir/config.yml"
+				info "Theme $(basename "$first_theme") copied to $user_themes_dir/config.yml"
+			fi
 		else
-			# Create a basic config
-			cat >"$user_themes_dir/config.yml" <<'EOL'
-{
-  "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
-  "blocks": [
-    {
-      "alignment": "left",
-      "segments": [
-        {
-          "foreground": "#5FAAE8",
-          "style": "plain",
-          "template": "{{ .UserName }}@{{ .HostName }} ",
-          "type": "session"
-        },
-        {
-          "foreground": "#BF616A",
-          "properties": {
-            "style": "folder"
-          },
-          "style": "plain",
-          "template": "<#A3BE8C>in</> {{ .Path }} ",
-          "type": "path"
-        },
-        {
-          "foreground": "#EBCB8B",
-          "properties": {
-            "branch_icon": ""
-          },
-          "style": "plain",
-          "template": "<#88C0D0>on</> {{ .HEAD }} ",
-          "type": "git"
-        }
-      ],
-      "type": "prompt"
-    },
-    {
-      "alignment": "left",
-      "newline": true,
-      "segments": [
-        {
-          "foreground": "#5FAAE8",
-          "style": "plain",
-          "template": "$ ",
-          "type": "text"
-        }
-      ],
-      "type": "prompt"
-    }
-  ],
-  "version": 2
-}
-EOL
-			info "Basic theme created at $user_themes_dir/config.yml"
+			info "No themes found in $system_themes_dir, skipping default theme setup"
 		fi
+	elif [ -f "$user_themes_dir/config.yml" ]; then
+		info "User theme already exists at $user_themes_dir/config.yml"
 	fi
 }
 
