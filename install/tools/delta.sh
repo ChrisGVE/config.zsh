@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# Delta Installation Script (Simplified)
+# Delta Installation Script (Direct Download)
 #
 # Purpose:
 # Installs or updates delta (https://github.com/dandavison/delta)
@@ -20,42 +20,13 @@ BINARY="delta"
 # Skip normal parsing and use direct installation
 info "Installing delta on Raspberry Pi..."
 
-# Attempt to install via package manager first (most reliable)
-info "Attempting to install via package manager..."
-sudo apt-get update
-sudo apt-get install -y git-delta
-
-# Check if installation succeeded
-if command -v git-delta >/dev/null 2>&1; then
-	info "git-delta command available: $(which git-delta)"
-
-	# Create symlink to delta if needed
-	if ! command -v delta >/dev/null 2>&1; then
-		info "Creating symlink from git-delta to delta"
-		sudo ln -sf "$(which git-delta)" "$BASE_DIR/bin/delta"
-	fi
-
-	# Configure git to use delta
-	info "Configuring git to use delta..."
-	git config --global core.pager delta
-	git config --global interactive.diffFilter "delta --color-only"
-	git config --global delta.navigate true
-	git config --global merge.conflictStyle zdiff3
-
-	info "Delta installation and configuration completed successfully"
-	exit 0
-fi
-
-# If package manager failed, try direct download
-info "Package manager installation failed, trying direct download..."
-
 # Create temp directory
 TMP_DIR=$(mktemp -d)
 
 # Find the latest release
 info "Finding latest delta release..."
-VERSION=$(curl -s https://api.github.com/repos/dandavison/delta/releases/latest |
-	grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
+RELEASE_INFO=$(curl -s https://api.github.com/repos/dandavison/delta/releases/latest)
+VERSION=$(echo "$RELEASE_INFO" | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4)
 
 if [ -z "$VERSION" ]; then
 	warn "Could not determine latest version, using fallback version"
@@ -65,17 +36,33 @@ fi
 info "Latest version: $VERSION"
 VERSION=${VERSION#v} # Remove 'v' prefix if present
 
-# Download the appropriate package for Raspberry Pi (ARM64)
-DEB_FILE="git-delta_${VERSION}_arm64.deb"
+# Determine the correct package based on architecture
+ARCH=$(uname -m)
+info "Detected architecture: $ARCH"
+
+if [ "$ARCH" = "aarch64" ]; then
+	DEB_FILE="git-delta_${VERSION}_arm64.deb"
+elif [ "$ARCH" = "armv7l" ]; then
+	DEB_FILE="git-delta_${VERSION}_armhf.deb"
+else
+	error "Unsupported architecture: $ARCH"
+	exit 1
+fi
+
 DOWNLOAD_URL="https://github.com/dandavison/delta/releases/download/${VERSION}/${DEB_FILE}"
 
 info "Downloading from: $DOWNLOAD_URL"
 if curl -L -o "$TMP_DIR/$DEB_FILE" "$DOWNLOAD_URL"; then
 	info "Installing deb package..."
 	sudo dpkg -i "$TMP_DIR/$DEB_FILE" || {
-		warn "Failed to install deb package"
-		rm -rf "$TMP_DIR"
-		exit 1
+		warn "Failed to install deb package, checking for dependencies..."
+		sudo apt-get update
+		sudo apt-get install -f -y # Fix dependencies
+		sudo dpkg -i "$TMP_DIR/$DEB_FILE" || {
+			error "Failed to install deb package after fixing dependencies"
+			rm -rf "$TMP_DIR"
+			exit 1
+		}
 	}
 
 	# Create symlink if needed
@@ -84,17 +71,25 @@ if curl -L -o "$TMP_DIR/$DEB_FILE" "$DOWNLOAD_URL"; then
 		sudo ln -sf "$(which git-delta)" "$BASE_DIR/bin/delta"
 	fi
 
-	# Configure git
-	info "Configuring git to use delta..."
-	git config --global core.pager delta
-	git config --global interactive.diffFilter "delta --color-only"
-	git config --global delta.navigate true
-	git config --global merge.conflictStyle zdiff3
+	# Verify the installation
+	if command -v delta >/dev/null 2>&1 || command -v git-delta >/dev/null 2>&1; then
+		# Configure git
+		info "Configuring git to use delta..."
+		git config --global core.pager delta
+		git config --global interactive.diffFilter "delta --color-only"
+		git config --global delta.navigate true
+		git config --global merge.conflictStyle zdiff3
 
-	rm -rf "$TMP_DIR"
-	info "Delta installation and configuration completed successfully"
+		rm -rf "$TMP_DIR"
+		info "Delta installation and configuration completed successfully"
+		exit 0
+	else
+		error "Delta binary not found after installation"
+		rm -rf "$TMP_DIR"
+		exit 1
+	fi
 else
-	warn "Failed to download deb package"
+	error "Failed to download deb package from $DOWNLOAD_URL"
 	rm -rf "$TMP_DIR"
 	exit 1
 fi

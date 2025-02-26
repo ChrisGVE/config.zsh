@@ -28,6 +28,30 @@ VERSION_CMD="--version"
 install_deps() {
 	info "Installing $TOOL_NAME build dependencies..."
 
+	# Ensure package manager is detected
+	if type detect_package_manager >/dev/null 2>&1; then
+		detect_package_manager
+	fi
+
+	# Set fallback if still not defined
+	if [ -z "${PACKAGE_MANAGER:-}" ]; then
+		warn "Package manager not detected, using fallback method"
+		# Try to determine package manager
+		if command -v apt-get >/dev/null 2>&1; then
+			PACKAGE_MANAGER="apt"
+		elif command -v dnf >/dev/null 2>&1; then
+			PACKAGE_MANAGER="dnf"
+		elif command -v pacman >/dev/null 2>&1; then
+			PACKAGE_MANAGER="pacman"
+		elif command -v brew >/dev/null 2>&1; then
+			PACKAGE_MANAGER="brew"
+		else
+			error "Could not determine package manager"
+			return 1
+		fi
+		info "Using fallback package manager: $PACKAGE_MANAGER"
+	fi
+
 	case "$PACKAGE_MANAGER" in
 	brew)
 		brew install make
@@ -44,7 +68,12 @@ install_deps() {
 		;;
 	*)
 		warn "Unknown package manager: $PACKAGE_MANAGER, trying to install dependencies manually"
-		package_install "make"
+		if command -v apt-get >/dev/null 2>&1; then
+			sudo apt-get install -y make
+		else
+			error "Could not install dependencies"
+			return 1
+		fi
 		;;
 	esac
 }
@@ -111,30 +140,21 @@ find_latest_version_tag() {
 	# Ensure we have all tags
 	sudo git fetch --tags --force || warn "Failed to fetch tags"
 
-	# List all tags excluding 'latest'
-	local all_tags=$(git tag -l | grep -v "^latest$")
+	# List all tags and filter for version-like tags
+	local all_tags=$(git tag -l)
+	info "Available tags: $all_tags"
 
-	# Create a temporary file to store normalized tags
-	local temp_file=$(mktemp)
+	# Filter out 'latest' tag and look for numeric versions without 'v' prefix
+	# For this repo, we want the plain version format (0.10.6, not v0.10.6)
+	local version_tags=$(echo "$all_tags" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$')
 
-	# Process each tag to normalize format (strip 'v' prefix if exists)
-	echo "$all_tags" | while read -r tag; do
-		if [[ "$tag" =~ ^v[0-9] ]]; then
-			# Remove 'v' prefix for sorting
-			echo "${tag#v}|$tag" >>"$temp_file"
-		elif [[ "$tag" =~ ^[0-9] ]]; then
-			# Keep version as is for sorting
-			echo "$tag|$tag" >>"$temp_file"
-		fi
-	done
+	info "Version tags found: $version_tags"
 
-	# Sort by normalized version and get the original tag name of the latest version
-	if [ -s "$temp_file" ]; then
-		local latest_tag=$(sort -V -t'|' -k1 "$temp_file" | tail -n1 | cut -d'|' -f2)
-		rm "$temp_file"
-		echo "$latest_tag"
+	# Sort tags by version number and get the latest
+	if [ -n "$version_tags" ]; then
+		echo "$version_tags" | sort -V | tail -n1
 	else
-		rm "$temp_file"
+		# Return empty if no version tags found
 		echo ""
 	fi
 }
@@ -168,19 +188,11 @@ build_tool() {
 			info "Building version: $latest_version"
 			sudo git checkout "$latest_version" || error "Failed to checkout version $latest_version"
 		else
-			info "No version tags found, trying to manually check for versions 0.10.x"
-
-			# Try specific versions we know exist, starting from newest
-			for ver in "v0.10.6" "v0.10.5" "v0.10.4" "v0.10.3" "v0.10.2" "v0.10.1" "v0.10.0"; do
-				if sudo git tag -l | grep -q "^$ver$"; then
-					info "Found version $ver, using it"
-					sudo git checkout "$ver" || continue
-					latest_version="$ver"
-					break
-				fi
-			done
-
-			if [ -z "$latest_version" ]; then
+			info "No numeric version tags found, trying fallback to 0.10.6"
+			if sudo git tag -l | grep -q "^0.10.6$"; then
+				info "Found version 0.10.6, using it"
+				sudo git checkout "0.10.6" || warn "Failed to checkout 0.10.6"
+			else
 				# If still not found, use main/master branch as fallback
 				info "No known version tags found, using main/master branch"
 				sudo git checkout main 2>/dev/null || sudo git checkout master || error "Failed to checkout main/master branch"
@@ -211,6 +223,9 @@ build_tool() {
 	# Make sure RUSTUP_HOME and CARGO_HOME are set correctly
 	export RUSTUP_HOME="${RUSTUP_HOME:-$BASE_DIR/share/dev/toolchains/rust/rustup}"
 	export CARGO_HOME="${CARGO_HOME:-$BASE_DIR/share/dev/toolchains/rust/cargo}"
+
+	# Export PATH to include cargo
+	export PATH="$PATH:$CARGO_HOME/bin"
 
 	# Build using make as recommended
 	make release || error "Failed to build"
@@ -262,6 +277,12 @@ if [ "$TOOL_VERSION_TYPE" = "managed" ]; then
 	else
 		warn "Package manager installation failed, falling back to build from source"
 	fi
+fi
+
+# Ensure package manager is detected
+if type detect_package_manager >/dev/null 2>&1; then
+	detect_package_manager
+	info "Using package manager: $PACKAGE_MANAGER"
 fi
 
 # Install dependencies
