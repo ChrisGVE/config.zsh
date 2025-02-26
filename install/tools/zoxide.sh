@@ -302,21 +302,36 @@ main() {
 
 	# Parse tool configuration
 	parse_tool_config "$TOOL_NAME"
+	info "Configured $TOOL_NAME version type: $TOOL_VERSION_TYPE"
 
-	# Try official installer first, which handles OS and architecture detection
-	if install_using_official_script; then
-		info "$TOOL_NAME successfully installed using official installer"
-		return 0
+	# Check if already installed via package manager
+	local is_installed_via_pkg=0
+	if command -v zoxide >/dev/null 2>&1; then
+		if which zoxide | grep -q "/usr/bin/"; then
+			is_installed_via_pkg=1
+			info "Detected package manager installation of zoxide"
+		fi
 	fi
 
-	# Try downloading pre-built binary
-	if download_prebuilt_binary; then
-		info "$TOOL_NAME successfully installed using pre-built binary"
-		return 0
+	# If installed via package manager but we want stable/head, uninstall it
+	if [ $is_installed_via_pkg -eq 1 ] && [ "$TOOL_VERSION_TYPE" != "managed" ]; then
+		info "Removing package manager version before building from source..."
+		case "$PACKAGE_MANAGER" in
+		apt)
+			sudo apt-get remove -y zoxide
+			;;
+		dnf)
+			sudo dnf remove -y zoxide
+			;;
+		pacman)
+			sudo pacman -R --noconfirm zoxide
+			;;
+		esac
 	fi
 
-	# Try package manager next
-	if [ "$TOOL_VERSION_TYPE" = "managed" ] || [ "$TOOL_VERSION_TYPE" = "stable" ]; then
+	# Only use package manager if explicitly set to "managed"
+	if [ "$TOOL_VERSION_TYPE" = "managed" ]; then
+		info "Installing $TOOL_NAME via package manager as configured..."
 		if install_via_package_manager; then
 			info "$TOOL_NAME successfully installed via package manager"
 			return 0
@@ -325,13 +340,30 @@ main() {
 		fi
 	fi
 
+	# Always try downloading pre-built binary first as it's the most reliable method
+	info "Attempting to download pre-built binary..."
+	if download_prebuilt_binary; then
+		info "$TOOL_NAME successfully installed using pre-built binary"
+		return 0
+	fi
+
+	# Use official installer as second choice
+	info "Pre-built binary download failed, trying official installer..."
+	if install_using_official_script; then
+		info "$TOOL_NAME successfully installed using official installer"
+		return 0
+	fi
+
+	# Last resort: build from source
+	info "Installer failed, falling back to building from source..."
+
 	# Install dependencies
 	install_deps
 
 	# Setup repository in cache
 	REPO_DIR=$(setup_tool_repo "$TOOL_NAME" "$REPO_URL")
 
-	# Build and install
+	# Build and install with resource constraints for Raspberry Pi
 	build_tool "$REPO_DIR" "$TOOL_VERSION_TYPE"
 
 	info "$TOOL_NAME installation completed successfully"

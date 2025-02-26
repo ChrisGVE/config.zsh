@@ -59,6 +59,141 @@ install_deps() {
 	esac
 }
 
+install_via_package_manager() {
+	info "Installing $TOOL_NAME via package manager..."
+
+	case "$PACKAGE_MANAGER" in
+	brew)
+		brew install uv
+		;;
+	apt)
+		sudo apt-get update
+		sudo apt-get install -y uv
+		;;
+	dnf)
+		sudo dnf install -y uv
+		;;
+	pacman)
+		sudo pacman -Sy --noconfirm uv
+		;;
+	*)
+		warn "Unknown package manager: $PACKAGE_MANAGER, cannot install via package manager"
+		return 1
+		;;
+	esac
+
+	# Check if installation succeeded
+	if command -v uv >/dev/null 2>&1; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+remove_package_manager_version() {
+	info "Removing package manager version of $TOOL_NAME..."
+
+	case "$PACKAGE_MANAGER" in
+	brew)
+		brew uninstall uv || true
+		;;
+	apt)
+		sudo apt-get remove -y uv || true
+		;;
+	dnf)
+		sudo dnf remove -y uv || true
+		;;
+	pacman)
+		sudo pacman -R --noconfirm uv || true
+		;;
+	*)
+		warn "Unknown package manager: $PACKAGE_MANAGER, cannot remove via package manager"
+		;;
+	esac
+}
+
+download_prebuilt_binary() {
+	info "Attempting to download pre-built binary..."
+
+	# Get latest release info
+	local releases_url="https://api.github.com/repos/astral-sh/uv/releases/latest"
+	local release_info=$(curl -s "$releases_url")
+
+	# Extract version
+	local version=$(echo "$release_info" | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4)
+
+	if [ -z "$version" ]; then
+		warn "Could not determine latest uv version"
+		return 1
+	fi
+
+	info "Latest version: $version"
+
+	# Determine platform and architecture
+	local platform=""
+	local arch=""
+
+	case "$OS_TYPE" in
+	macos)
+		platform="apple-darwin"
+		;;
+	linux | raspberrypi)
+		platform="unknown-linux-musl"
+		;;
+	*)
+		warn "Unsupported platform: $OS_TYPE"
+		return 1
+		;;
+	esac
+
+	case "$(uname -m)" in
+	x86_64)
+		arch="x86_64"
+		;;
+	aarch64 | arm64)
+		arch="aarch64"
+		;;
+	*)
+		warn "Unsupported architecture: $(uname -m)"
+		return 1
+		;;
+	esac
+
+	# Construct download URL
+	local download_url="https://github.com/astral-sh/uv/releases/download/${version}/uv-${arch}-${platform}.tar.gz"
+	info "Download URL: $download_url"
+
+	# Download and extract
+	local tmp_dir=$(mktemp -d)
+	if curl -L -o "$tmp_dir/uv.tar.gz" "$download_url"; then
+		tar -xzf "$tmp_dir/uv.tar.gz" -C "$tmp_dir"
+
+		# Find the binary
+		local binary_path=$(find "$tmp_dir" -name "uv" -type f)
+
+		if [ -z "$binary_path" ]; then
+			warn "Could not find uv binary in extracted archive"
+			rm -rf "$tmp_dir"
+			return 1
+		fi
+
+		# Install binary
+		sudo install -m755 "$binary_path" "$BASE_DIR/bin/" || {
+			warn "Failed to install uv binary"
+			rm -rf "$tmp_dir"
+			return 1
+		}
+
+		rm -rf "$tmp_dir"
+		info "Successfully installed pre-built uv binary"
+		return 0
+	else
+		warn "Failed to download uv binary"
+		rm -rf "$tmp_dir"
+		return 1
+	fi
+}
+
 build_tool() {
 	local build_dir="$1"
 	local version_type="$2"
@@ -80,6 +215,9 @@ build_tool() {
 	(cd "$build_dir" && sudo git config --local core.trustctime false)
 	sudo chmod -R g+w "$build_dir"
 
+	# Fetch all tags
+	sudo git fetch --tags --force || warn "Failed to fetch tags"
+
 	# Checkout appropriate version
 	if [ "$version_type" = "stable" ]; then
 		# Try to get latest tag
@@ -95,6 +233,8 @@ build_tool() {
 	else
 		info "Building from latest HEAD"
 		sudo git checkout main || error "Failed to checkout main branch"
+		# Pull latest changes
+		sudo git pull --ff-only || warn "Failed to pull latest changes"
 	fi
 
 	# Make sure Rust is available
@@ -102,103 +242,131 @@ build_tool() {
 
 	info "Building $TOOL_NAME..."
 
-	# Configure with limited resources for Raspberry Pi
+	# Configure with extreme resource constraints for Raspberry Pi
 	if [ "$OS_TYPE" = "raspberrypi" ]; then
-		info "Limiting build resources for Raspberry Pi..."
-		# Use only 1 job and limit memory usage
+		info "Using extreme resource constraints for Raspberry Pi..."
 		export CARGO_BUILD_JOBS=1
-		export RUSTFLAGS="-C codegen-units=1"
+		export RUSTFLAGS="-C codegen-units=1 -C opt-level=s -C lto=thin"
 	else
 		# Configure build flags for Rust on other platforms
 		configure_build_flags
 		export CARGO_BUILD_JOBS="${MAKE_FLAGS#-j}"
 	fi
 
-	# For Raspberry Pi, download pre-built binary if available
-	if [ "$OS_TYPE" = "raspberrypi" ] && [ "$(uname -m)" = "aarch64" ]; then
-		info "Attempting to download pre-built binary for Raspberry Pi..."
+	# Make sure RUSTUP_HOME and CARGO_HOME are set correctly
+	export RUSTUP_HOME="${RUSTUP_HOME:-$BASE_DIR/share/dev/toolchains/rust/rustup}"
+	export CARGO_HOME="${CARGO_HOME:-$BASE_DIR/share/dev/toolchains/rust/cargo}"
 
-		# Get version without 'v' prefix if it exists
-		local version=${latest_version#v}
+	# Add debugging info
+	info "RUSTUP_HOME=$RUSTUP_HOME"
+	info "CARGO_HOME=$CARGO_HOME"
+	info "CARGO_BUILD_JOBS=$CARGO_BUILD_JOBS"
+	info "RUSTFLAGS=${RUSTFLAGS:-none}"
 
-		# Try to download pre-built binary
-		local tmp_dir=$(mktemp -d)
-		if curl -L "https://github.com/astral-sh/uv/releases/download/$latest_version/uv-aarch64-unknown-linux-gnu.tar.gz" -o "$tmp_dir/uv.tar.gz"; then
-			# Extract and install
-			tar -xzf "$tmp_dir/uv.tar.gz" -C "$tmp_dir"
-			sudo install -m755 "$tmp_dir/uv" "$BASE_DIR/bin/" || error "Failed to install"
-			rm -rf "$tmp_dir"
-			info "Successfully installed pre-built uv binary"
-			return 0
+	# Export PATH to include cargo
+	export PATH="$PATH:$CARGO_HOME/bin"
+
+	# For Raspberry Pi, build with minimal feature set
+	if [ "$OS_TYPE" = "raspberrypi" ]; then
+		info "Building with minimal features for Raspberry Pi..."
+		# Build with cargo - use sudo with environment
+		sudo -E env PATH="$PATH" \
+			RUSTUP_HOME="$RUSTUP_HOME" \
+			CARGO_HOME="$CARGO_HOME" \
+			CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" \
+			RUSTFLAGS="${RUSTFLAGS:-}" \
+			cargo build --profile release-small --no-default-features --features "system-libs" || error "Failed to build"
+	else
+		# For other platforms, build with default features
+		if [ "$OS_TYPE" = "macos" ]; then
+			# For macOS, don't use sudo
+			RUSTFLAGS="${RUSTFLAGS:-}" \
+				CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" \
+				cargo build --release || error "Failed to build"
 		else
-			info "No pre-built binary available, falling back to compilation"
+			# For Linux, use sudo with environment
+			sudo -E env PATH="$PATH" \
+				RUSTUP_HOME="$RUSTUP_HOME" \
+				CARGO_HOME="$CARGO_HOME" \
+				CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" \
+				RUSTFLAGS="${RUSTFLAGS:-}" \
+				cargo build --release || error "Failed to build"
 		fi
 	fi
 
-	# Build with cargo
-	if [ "$OS_TYPE" = "macos" ]; then
-		# For macOS, don't use sudo
-		RUSTFLAGS="${RUSTFLAGS:-}" \
-			CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" \
-			cargo build --release || error "Failed to build"
-	else
-		# For Linux, use sudo with environment
-		sudo -E env PATH="$PATH" \
-			RUSTUP_HOME="${RUSTUP_HOME:-$BASE_DIR/share/dev/toolchains/rust/rustup}" \
-			CARGO_HOME="${CARGO_HOME:-$BASE_DIR/share/dev/toolchains/rust/cargo}" \
-			CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" \
-			RUSTFLAGS="${RUSTFLAGS:-}" \
-			cargo build --release || error "Failed to build"
+	info "Installing $TOOL_NAME..."
+
+	# Find the binary location based on build profile
+	local bin_path="target/release/uv"
+	if [ "$OS_TYPE" = "raspberrypi" ]; then
+		bin_path="target/release-small/uv"
+		# Check if it exists, otherwise fall back to release
+		if [ ! -f "$bin_path" ]; then
+			bin_path="target/release/uv"
+		fi
 	fi
 
-	info "Installing $TOOL_NAME..."
-	sudo install -m755 target/release/uv "$BASE_DIR/bin/" || error "Failed to install"
+	# Install the binary
+	if [ -f "$bin_path" ]; then
+		sudo install -m755 "$bin_path" "$BASE_DIR/bin/" || error "Failed to install"
+		info "Successfully installed $TOOL_NAME to $BASE_DIR/bin/"
+	else
+		error "Binary not found at $bin_path after build"
+	fi
 }
 
 ###############################################################################
 # Main Installation Process
 ###############################################################################
 
-main() {
-	info "Starting installation of $TOOL_NAME..."
+# Parse tool configuration
+parse_tool_config "$TOOL_NAME"
+info "Configured $TOOL_NAME version type: $TOOL_VERSION_TYPE"
 
-	# Install dependencies
-	install_deps
-
-	# Setup repository in cache
-	REPO_DIR=$(setup_tool_repo "$TOOL_NAME" "$REPO_URL")
-
-	# Parse tool configuration
-	parse_tool_config "$TOOL_NAME"
-
-	# For Raspberry Pi, try to use a pre-built binary first
-	if [ "$OS_TYPE" = "raspberrypi" ]; then
-		info "Checking for pre-built binary for Raspberry Pi..."
-
-		# Latest release URL
-		RELEASE_URL="https://github.com/astral-sh/uv/releases/latest/download/uv-aarch64-unknown-linux-gnu.tar.gz"
-
-		# Create temp directory
-		local tmp_dir=$(mktemp -d)
-
-		# Try to download pre-built binary
-		if curl -L "$RELEASE_URL" -o "$tmp_dir/uv.tar.gz"; then
-			info "Downloaded pre-built binary, installing..."
-			tar -xzf "$tmp_dir/uv.tar.gz" -C "$tmp_dir"
-			sudo install -m755 "$tmp_dir/uv" "$BASE_DIR/bin/" || warn "Failed to install pre-built binary, will build from source"
-			rm -rf "$tmp_dir"
-			info "Successfully installed pre-built uv binary"
-			return 0
-		else
-			info "No pre-built binary available, will build from source"
-		fi
+# Check if already installed via package manager
+is_installed_via_pkg=0
+if command -v uv >/dev/null 2>&1; then
+	if which uv | grep -q "/usr/bin/"; then
+		is_installed_via_pkg=1
+		info "Detected package manager installation of uv"
 	fi
+fi
 
-	# Build and install
-	build_tool "$REPO_DIR" "$TOOL_VERSION_TYPE"
+# If installed via package manager but we want stable/head, uninstall it
+if [ $is_installed_via_pkg -eq 1 ] && [ "$TOOL_VERSION_TYPE" != "managed" ]; then
+	info "Removing package manager version before building from source..."
+	remove_package_manager_version
+fi
 
-	info "$TOOL_NAME installation completed successfully"
-}
+# Only use package manager if explicitly set to "managed"
+if [ "$TOOL_VERSION_TYPE" = "managed" ]; then
+	info "Installing $TOOL_NAME via package manager as configured..."
+	if install_via_package_manager; then
+		info "$TOOL_NAME successfully installed via package manager"
+		exit 0
+	else
+		warn "Package manager installation failed, falling back to build from source"
+	fi
+fi
 
-# Run the main installation
-main
+# For Raspberry Pi, try pre-built binary first
+if [ "$OS_TYPE" = "raspberrypi" ]; then
+	info "Trying pre-built binary for Raspberry Pi..."
+	if download_prebuilt_binary; then
+		info "$TOOL_NAME successfully installed using pre-built binary"
+		exit 0
+	else
+		info "Pre-built binary installation failed, will try building from source"
+	fi
+fi
+
+# Install dependencies
+install_deps
+
+# Setup repository in cache
+REPO_DIR=$(setup_tool_repo "$TOOL_NAME" "$REPO_URL")
+
+# Build and install
+build_tool "$REPO_DIR" "$TOOL_VERSION_TYPE"
+
+info "$TOOL_NAME installation completed successfully"

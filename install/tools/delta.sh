@@ -231,23 +231,39 @@ main() {
 
 	# Parse tool configuration
 	parse_tool_config "$TOOL_NAME"
+	info "Configured $TOOL_NAME version type: $TOOL_VERSION_TYPE"
 
-	# Detect if we should use package manager
+	# Check if already installed via package manager
+	local is_installed_via_pkg=0
+	if command -v delta >/dev/null 2>&1; then
+		# Check if it's a package manager version
+		if which delta | grep -q "/usr/bin/"; then
+			is_installed_via_pkg=1
+			info "Detected package manager installation of delta"
+		fi
+	fi
+
+	# If it's installed via package manager but we want stable/head, uninstall first
+	if [ $is_installed_via_pkg -eq 1 ] && [ "$TOOL_VERSION_TYPE" != "managed" ]; then
+		info "Removing package manager version before building from source..."
+		case "$PACKAGE_MANAGER" in
+		apt)
+			sudo apt-get remove -y git-delta
+			;;
+		dnf)
+			sudo dnf remove -y git-delta
+			;;
+		pacman)
+			sudo pacman -R --noconfirm git-delta
+			;;
+		esac
+	fi
+
+	# Determine if we should use package manager (ONLY if explicitly set to managed)
 	local use_pkg_manager=0
 	if [ "$TOOL_VERSION_TYPE" = "managed" ]; then
 		use_pkg_manager=1
-	fi
-
-	# For macOS with Homebrew, prefer package manager by default
-	if [ "$OS_TYPE" = "macos" ] && [ "$PACKAGE_MANAGER" = "brew" ] && [ "$TOOL_VERSION_TYPE" != "head" ]; then
-		info "On macOS with Homebrew, using package manager by default"
-		use_pkg_manager=1
-	fi
-
-	# For Raspberry Pi, try the package manager first for speed/simplicity
-	if [ "$OS_TYPE" = "raspberrypi" ] && [ "$TOOL_VERSION_TYPE" != "head" ]; then
-		info "On Raspberry Pi, trying package manager first"
-		use_pkg_manager=1
+		info "Using package manager as configured in tools.conf"
 	fi
 
 	if [ $use_pkg_manager -eq 1 ]; then

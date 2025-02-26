@@ -80,6 +80,28 @@ install_via_package_manager() {
 	fi
 }
 
+remove_package_manager_version() {
+	info "Removing package manager version of $TOOL_NAME..."
+
+	case "$PACKAGE_MANAGER" in
+	brew)
+		brew uninstall tool-name || true
+		;;
+	apt)
+		sudo apt-get remove -y tool-name || true
+		;;
+	dnf)
+		sudo dnf remove -y tool-name || true
+		;;
+	pacman)
+		sudo pacman -R --noconfirm tool-name || true
+		;;
+	*)
+		warn "Unknown package manager: $PACKAGE_MANAGER, cannot remove via package manager"
+		;;
+	esac
+}
+
 build_tool() {
 	local build_dir="$1"
 	local version_type="$2"
@@ -101,35 +123,43 @@ build_tool() {
 	(cd "$build_dir" && sudo git config --local --bool core.trustctime false)
 	sudo chmod -R g+w "$build_dir"
 
+	# Fetch all tags to ensure we get the latest
+	sudo git fetch --tags --force || warn "Failed to fetch tags"
+
 	# Checkout appropriate version
 	if [ "$version_type" = "stable" ]; then
-		# Try to get latest tag
+		# Try to get latest tag - exclude non-version tags
 		local latest_version=$(git tag -l | grep -E '^v?[0-9]+(\.[0-9]+)*$' | sort -V | tail -n1)
 
 		if [ -n "$latest_version" ]; then
 			info "Building version: $latest_version"
 			sudo git checkout "$latest_version" || error "Failed to checkout version $latest_version"
 		else
-			info "No version tags found, using master branch"
-			sudo git checkout master || sudo git checkout main || error "Failed to checkout master branch"
+			info "No version tags found, using master/main branch"
+			sudo git checkout master 2>/dev/null || sudo git checkout main || error "Failed to checkout master/main branch"
 		fi
 	else
 		info "Building from latest HEAD"
-		sudo git checkout master || sudo git checkout main || error "Failed to checkout master/main branch"
+		sudo git checkout master 2>/dev/null || sudo git checkout main || error "Failed to checkout master/main branch"
+		# Pull latest changes
+		sudo git pull --ff-only || warn "Failed to pull latest changes"
 	fi
 
 	info "Building $TOOL_NAME..."
 
-	# TOOL-SPECIFIC BUILD STEPS GO HERE
-	# Example for Rust project:
+	# Configure build flags with platform-specific optimizations
 	configure_build_flags
-	export CARGO_BUILD_JOBS="${MAKE_FLAGS#-j}"
-	sudo -E env CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" cargo build --release || error "Failed to build"
+
+	# Set Raspberry Pi resource constraints if needed
+	if [ "$OS_TYPE" = "raspberrypi" ]; then
+		info "Configuring build for Raspberry Pi resource constraints..."
+		# Use appropriate resource constraints based on build system
+	fi
+
+	# TOOL-SPECIFIC BUILD STEPS GO HERE
 
 	info "Installing $TOOL_NAME..."
 	# TOOL-SPECIFIC INSTALL STEPS GO HERE
-	# Example:
-	sudo install -m755 target/release/$BINARY "$BASE_DIR/bin/" || error "Failed to install"
 
 	return 0
 }
@@ -143,20 +173,26 @@ main() {
 
 	# Parse tool configuration
 	parse_tool_config "$TOOL_NAME"
+	info "Configured $TOOL_NAME version type: $TOOL_VERSION_TYPE"
 
-	# Detect if we should use package manager
-	local use_pkg_manager=0
+	# Check if already installed via package manager
+	local is_installed_via_pkg=0
+	if command -v $BINARY >/dev/null 2>&1; then
+		if which $BINARY | grep -q "/usr/bin/"; then
+			is_installed_via_pkg=1
+			info "Detected package manager installation of $TOOL_NAME"
+		fi
+	fi
+
+	# If installed via package manager but we want stable/head, uninstall it
+	if [ $is_installed_via_pkg -eq 1 ] && [ "$TOOL_VERSION_TYPE" != "managed" ]; then
+		info "Removing package manager version before building from source..."
+		remove_package_manager_version
+	fi
+
+	# Only use package manager if explicitly set to "managed"
 	if [ "$TOOL_VERSION_TYPE" = "managed" ]; then
-		use_pkg_manager=1
-	fi
-
-	# For macOS with Homebrew, prefer package manager by default
-	if [ "$OS_TYPE" = "macos" ] && [ "$PACKAGE_MANAGER" = "brew" ] && [ "$TOOL_VERSION_TYPE" != "head" ]; then
-		info "On macOS with Homebrew, using package manager by default"
-		use_pkg_manager=1
-	fi
-
-	if [ $use_pkg_manager -eq 1 ]; then
+		info "Installing $TOOL_NAME via package manager as configured..."
 		if install_via_package_manager; then
 			info "$TOOL_NAME successfully installed via package manager"
 			return 0

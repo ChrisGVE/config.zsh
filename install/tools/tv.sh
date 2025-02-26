@@ -52,8 +52,11 @@ build_tool() {
 
 	# Checkout appropriate version
 	if [ "$version_type" = "stable" ]; then
-		# Try to get latest tag
-		local latest_version=$(git tag -l | grep -E '^v?[0-9]+(\.[0-9]+)*$' | sort -V | tail -n1)
+		# Get all tags and find the latest version
+		sudo git fetch --tags --force || warn "Failed to fetch tags"
+
+		# Find the latest version tag, exclude the 'latest' tag to avoid confusion
+		local latest_version=$(git tag -l | grep -v "latest" | grep -E '^v?[0-9]+(\.[0-9]+)+$' | sort -V | tail -n1)
 
 		if [ -n "$latest_version" ]; then
 			info "Building version: $latest_version"
@@ -69,9 +72,17 @@ build_tool() {
 
 	info "Building $TOOL_NAME..."
 
-	# Configure build flags for Rust
+	# Configure build flags for Rust with resource constraints
 	configure_build_flags
-	export CARGO_BUILD_JOBS="${MAKE_FLAGS#-j}"
+
+	# Limit parallelism for Raspberry Pi
+	if [ "$OS_TYPE" = "raspberrypi" ]; then
+		info "Configuring resource constraints for Raspberry Pi..."
+		export CARGO_BUILD_JOBS=1
+		export RUSTFLAGS="-C codegen-units=1"
+	else
+		export CARGO_BUILD_JOBS="${MAKE_FLAGS#-j}"
+	fi
 
 	# Build using make as recommended
 	make release || error "Failed to build"
