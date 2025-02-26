@@ -501,129 +501,117 @@ install_perl() {
 # Ruby Management
 ###############################################################################
 
-install_ruby_deps() {
-	info "Installing Ruby build dependencies..."
+install_ruby() {
+    local ruby_dir="$BASE_DIR/share/dev/toolchains/ruby"
 
-	case "$PACKAGE_MANAGER" in
-	brew)
-		brew install openssl readline libffi libyaml
-		;;
-	apt)
-		sudo apt-get update
-		sudo apt-get install -y build-essential libssl-dev libreadline-dev zlib1g-dev libffi-dev libyaml-dev
-		;;
-	dnf)
-		sudo dnf install -y gcc make openssl-devel readline-devel zlib-devel libffi-devel libyaml-devel
-		;;
-	pacman)
-		sudo pacman -Sy --noconfirm base-devel openssl readline zlib libffi libyaml
-		;;
-	esac
-}
+    info "Processing Ruby toolchain..."
 
-# Function to install Ruby from source
-install_ruby_from_source() {
-	local ruby_dir="$1"
-	local target_version="$2"
-	local tmp_dir=$(mktemp -d)
+    # For macOS, strongly prefer Homebrew
+    if [ "$OS_TYPE" = "macos" ] && command -v brew >/dev/null 2>&1; then
+        info "Installing Ruby via Homebrew on macOS"
+        brew install ruby
+        
+        # Create symlinks from Homebrew's Ruby to our directory
+        if [ -d "$HOMEBREW_PREFIX/opt/ruby" ]; then
+            sudo mkdir -p "$ruby_dir/bin"
+            create_managed_symlink "$HOMEBREW_PREFIX/opt/ruby/bin/ruby" "$BASE_DIR/bin/ruby"
+            create_managed_symlink "$HOMEBREW_PREFIX/opt/ruby/bin/gem" "$BASE_DIR/bin/gem"
+            create_managed_symlink "$HOMEBREW_PREFIX/opt/ruby/bin/bundle" "$BASE_DIR/bin/bundle"
+            
+            # Configure gem environment
+            if [ ! -f "$HOME/.gemrc" ]; then
+                echo "gem: --user-install" > "$HOME/.gemrc"
+            fi
+            
+            # Add Homebrew Ruby paths to PATH and environment
+            mkdir -p "$HOME/.config/zsh"
+            cat > "$HOME/.config/zsh/ruby.zsh" << RUBYENV
+# Ruby environment setup
+export PATH="$HOMEBREW_PREFIX/opt/ruby/bin:\$PATH"
+export LDFLAGS="\$LDFLAGS -L$HOMEBREW_PREFIX/opt/ruby/lib"
+export CPPFLAGS="\$CPPFLAGS -I$HOMEBREW_PREFIX/opt/ruby/include"
+export PKG_CONFIG_PATH="$HOMEBREW_PREFIX/opt/ruby/lib/pkgconfig:\$PKG_CONFIG_PATH"
 
-	info "Installing Ruby $target_version from source..."
-
-	# Install build dependencies first
-	install_ruby_deps
-
-	# Download Ruby source
-	curl -L "https://cache.ruby-lang.org/pub/ruby/${target_version%.*}/ruby-${target_version}.tar.gz" -o "$tmp_dir/ruby.tar.gz"
-
-	# Make sure previous installation is cleaned up
-	sudo rm -rf "$ruby_dir"
-	sudo mkdir -p "$ruby_dir"
-	sudo chown root:$ADMIN_GROUP "$ruby_dir"
-	sudo chmod 775 "$ruby_dir"
-
-	# Extract and build
-	cd "$tmp_dir" && tar -xzf ruby.tar.gz && cd "ruby-${target_version}"
-
-	# Find OpenSSL installation
-	local openssl_dir=""
-	if command -v openssl >/dev/null 2>&1; then
-		if openssl version -d 2>/dev/null | grep -q "OPENSSLDIR"; then
-			openssl_dir=$(openssl version -d | cut -d'"' -f2)
-		fi
-	fi
-
-	# Configure with proper flags
-	local config_flags="--prefix=$ruby_dir"
-	if [ -n "$openssl_dir" ]; then
-		config_flags="$config_flags --with-openssl-dir=$openssl_dir"
-	fi
-
-	# Add libffi flags if available
-	if pkg-config --exists libffi; then
-		local libffi_cflags=$(pkg-config --cflags libffi)
-		local libffi_libs=$(pkg-config --libs libffi)
-		export CFLAGS="$CFLAGS $libffi_cflags"
-		export LDFLAGS="$LDFLAGS $libffi_libs"
-	fi
-
-	# Configure and build Ruby
-	./configure $config_flags && make && sudo make install
-	local build_status=$?
-
-	# Create symlinks if build was successful
-	if [ $build_status -eq 0 ] && [ -f "$ruby_dir/bin/ruby" ]; then
-		create_managed_symlink "$ruby_dir/bin/ruby" "$BASE_DIR/bin/ruby"
-		create_managed_symlink "$ruby_dir/bin/gem" "$BASE_DIR/bin/gem"
-		create_managed_symlink "$ruby_dir/bin/bundle" "$BASE_DIR/bin/bundle"
-		create_managed_symlink "$ruby_dir/bin/irb" "$BASE_DIR/bin/irb"
-
-		TOOLCHAIN_STATES["ruby"]="installed"
-		TOOLCHAIN_VERSIONS["ruby"]=$("$ruby_dir/bin/ruby" -e 'puts RUBY_VERSION' 2>/dev/null || echo "$target_version")
-		info "Ruby $target_version successfully installed from source"
-	else
-		TOOLCHAIN_STATES["ruby"]="failed"
-		TOOLCHAIN_VERSIONS["ruby"]="unknown"
-		warn "Ruby source installation failed. Falling back to package manager."
-
-		# Fallback to package manager
-		case "$PACKAGE_MANAGER" in
-		apt)
-			sudo apt-get update
-			sudo apt-get install -y ruby-full ruby-dev
-			;;
-		dnf)
-			sudo dnf install -y ruby ruby-devel
-			;;
-		pacman)
-			sudo pacman -Sy --noconfirm ruby
-			;;
-		brew)
-			brew install ruby
-			;;
-		esac
-
-		# Create symlinks to system Ruby
-		if command -v ruby >/dev/null 2>&1; then
-			local system_ruby_path=$(command -v ruby)
-			local system_gem_path=$(command -v gem)
-
-			create_managed_symlink "$system_ruby_path" "$BASE_DIR/bin/ruby"
-			if [ -n "$system_gem_path" ]; then
-				create_managed_symlink "$system_gem_path" "$BASE_DIR/bin/gem"
-			fi
-
-			TOOLCHAIN_STATES["ruby"]="installed"
-			TOOLCHAIN_VERSIONS["ruby"]=$(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "unknown")
-			info "Ruby installed from package manager: $(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "unknown")"
-		else
-			TOOLCHAIN_STATES["ruby"]="failed"
-			TOOLCHAIN_VERSIONS["ruby"]="unknown"
-			warn "Ruby installation failed completely"
-		fi
-	fi
-
-	# Clean up
-	rm -rf "$tmp_dir"
+# Add Gem user directory to PATH
+if command -v gem >/dev/null 2>&1; then
+  export PATH="\$(gem env user_dir)/bin:\$PATH"
+fi
+RUBYENV
+            chmod +x "$HOME/.config/zsh/ruby.zsh"
+            
+            TOOLCHAIN_STATES["ruby"]="installed"
+            TOOLCHAIN_VERSIONS["ruby"]=$(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "unknown")
+        else
+            TOOLCHAIN_STATES["ruby"]="failed"
+            TOOLCHAIN_VERSIONS["ruby"]="unknown"
+            warn "Could not locate Homebrew's Ruby installation"
+        fi
+    # For Linux systems, use the package manager
+    else
+        info "Installing Ruby via package manager"
+        
+        case "$PACKAGE_MANAGER" in
+            apt)
+                sudo apt-get update
+                sudo apt-get install -y ruby-full ruby-dev build-essential libssl-dev zlib1g-dev libffi-dev
+                ;;
+            dnf)
+                sudo dnf install -y ruby ruby-devel openssl-devel zlib-devel libffi-devel
+                ;;
+            pacman)
+                sudo pacman -Sy --noconfirm ruby openssl zlib libffi
+                ;;
+            *)
+                error "Unsupported package manager for Ruby installation"
+                return 1
+                ;;
+        esac
+        
+        # Create symlinks to system Ruby
+        if command -v ruby >/dev/null 2>&1; then
+            local system_ruby_path=$(command -v ruby)
+            local system_gem_path=$(command -v gem)
+            local system_bundle_path=$(command -v bundle)
+            
+            sudo mkdir -p "$ruby_dir/bin"
+            create_managed_symlink "$system_ruby_path" "$BASE_DIR/bin/ruby"
+            
+            if [ -n "$system_gem_path" ]; then
+                create_managed_symlink "$system_gem_path" "$BASE_DIR/bin/gem"
+            fi
+            
+            if [ -n "$system_bundle_path" ]; then
+                create_managed_symlink "$system_bundle_path" "$BASE_DIR/bin/bundle"
+            else
+                # Install bundler if not available
+                sudo gem install bundler
+                if [ -f "/usr/local/bin/bundle" ]; then
+                    create_managed_symlink "/usr/local/bin/bundle" "$BASE_DIR/bin/bundle"
+                fi
+            fi
+            
+            # Configure gem to install to user directory to avoid permission issues
+            if [ ! -f "$HOME/.gemrc" ]; then
+                echo "gem: --user-install" > "$HOME/.gemrc"
+            fi
+            
+            # Add gem user directory to PATH
+            local gem_user_dir=$(ruby -e 'puts Gem.user_dir' 2>/dev/null)/bin
+            if [ -d "$gem_user_dir" ]; then
+                mkdir -p "$HOME/.config/zsh"
+                echo "export PATH=\"\$PATH:$gem_user_dir\"" > "$HOME/.config/zsh/ruby.zsh"
+                chmod +x "$HOME/.config/zsh/ruby.zsh"
+            fi
+            
+            TOOLCHAIN_STATES["ruby"]="installed"
+            TOOLCHAIN_VERSIONS["ruby"]=$(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "unknown")
+            info "Ruby installed from package manager: $(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "unknown")"
+        else
+            TOOLCHAIN_STATES["ruby"]="failed"
+            TOOLCHAIN_VERSIONS["ruby"]="unknown"
+            error "Ruby installation failed"
+        fi
+    fi
 }
 
 ###############################################################################

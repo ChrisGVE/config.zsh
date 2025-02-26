@@ -373,77 +373,60 @@ configure_git_trust() {
 	return 0
 }
 
-# Setup tool repository in cache
+# Setup tool repository in cache with robust error handling
+# Args:
+#   $1: Tool name
+#   $2: Repository URL
+# Setup tool repository in cache with robust error handling
 # Args:
 #   $1: Tool name
 #   $2: Repository URL
 setup_tool_repo() {
-	local tool_name="$1"
-	local repo_url="$2"
-	local cache_dir="$CACHE_DIR/$tool_name"
+    local tool_name="$1"
+    local repo_url="$2"
+    local cache_dir="$CACHE_DIR/$tool_name"
 
-	# Create cache directory if it doesn't exist
-	if [ ! -d "$CACHE_DIR" ]; then
-		sudo mkdir -p "$CACHE_DIR"
-		sudo chown root:$ADMIN_GROUP "$CACHE_DIR"
-		sudo chmod 775 "$CACHE_DIR"
-	fi
+    # 1. Ensure cache directory structure exists
+    if [ ! -d "$CACHE_DIR" ]; then
+        sudo mkdir -p "$CACHE_DIR"
+        sudo chown root:$ADMIN_GROUP "$CACHE_DIR"
+        sudo chmod 775 "$CACHE_DIR"
+    fi
 
-	# Check if repository directory exists
-	if [ ! -d "$cache_dir" ]; then
-		info "Cloning $tool_name repository..."
-		# Clone into a temporary directory first
-		local temp_dir=$(mktemp -d)
-		if git clone "$repo_url" "$temp_dir"; then
-			# Create the target directory
-			sudo mkdir -p "$cache_dir"
-			sudo chown root:$ADMIN_GROUP "$cache_dir"
-			sudo chmod 775 "$cache_dir"
-
-			# Move content to final location using sudo
-			sudo cp -a "$temp_dir/." "$cache_dir/"
-			rm -rf "$temp_dir"
-
-			# Ensure proper permissions
-			sudo chown -R root:$ADMIN_GROUP "$cache_dir"
-			sudo chmod -R 775 "$cache_dir"
-		else
-			error "Failed to clone repository: $repo_url"
-			rm -rf "$temp_dir"
-			return 1
-		fi
-	else
-		info "Updating $tool_name repository..."
-
-		# Always create fresh .git/config to avoid issues with safe.directory
-		if [ -f "$cache_dir/.git/config" ]; then
-			sudo rm -f "$cache_dir/.git/config"
-			(cd "$cache_dir" && sudo git init -q)
-			(cd "$cache_dir" && sudo git remote add origin "$repo_url")
-		fi
-
-		# Configure git trust for this repository
-		(cd "$cache_dir" && sudo git config --local --bool core.trustctime false)
-		(cd "$cache_dir" && sudo git config --local --bool core.filemode false)
-
-		# Set permissions for git operations
-		sudo chmod -R g+w "$cache_dir"
-
-		# Clean and reset the repository
-		(cd "$cache_dir" && sudo git clean -fd) || warn "Failed to clean repository"
-		(cd "$cache_dir" && sudo git reset --hard) || warn "Failed to reset repository"
-
-		# Fetch updates
-		(cd "$cache_dir" && sudo git fetch) || error "Failed to update repository"
-	fi
-
-	# Final verification
-	if [ ! -d "$cache_dir/.git" ]; then
-		error "Repository setup failed: $cache_dir is not a git repository"
-		return 1
-	fi
-
-	echo "$cache_dir"
+    # 2. Create a fresh clone approach - more reliable than updating
+    # If directory exists, completely remove it
+    if [ -d "$cache_dir" ]; then
+        info "Removing existing repository for fresh clone: $cache_dir"
+        sudo rm -rf "$cache_dir"
+        sleep 1  # Short pause to ensure deletion is complete
+    fi
+    
+    # 3. Now clone into a new directory
+    info "Cloning $tool_name repository..."
+    # Clone with sudo directly into the cache dir with proper permissions
+    if ! sudo git clone --quiet "$repo_url" "$cache_dir"; then
+        error "Failed to clone repository: $repo_url"
+        return 1
+    fi
+    
+    # 4. Set proper ownership and permissions
+    sudo chown -R root:$ADMIN_GROUP "$cache_dir"
+    sudo chmod -R 775 "$cache_dir"
+    
+    # 5. Configure git settings for this repository
+    (cd "$cache_dir" && sudo git config --local core.fileMode false)
+    (cd "$cache_dir" && sudo git config --local core.trustctime false)
+    (cd "$cache_dir" && sudo git config --local advice.detachedHead false)
+    
+    # 6. Verify the repo was properly cloned
+    if [ ! -d "$cache_dir/.git" ]; then
+        error "Repository setup failed: $cache_dir is not a git repository"
+        return 1
+    fi
+    
+    # Success - return the cache directory path
+    info "Repository setup successful: $cache_dir"
+    echo "$cache_dir"
 }
 
 ###############################################################################
