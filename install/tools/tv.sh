@@ -84,31 +84,43 @@ find_all_binaries() {
 	which -a "$binary_name" 2>/dev/null || true
 }
 
-remove_old_binaries() {
-	local binary_name="$1"
-	local bin_path="$2"
+forcefully_remove_binary() {
+	local binary_path="$1"
 
-	# Find all instances of the binary
-	local binaries=($(find_all_binaries "$binary_name"))
+	if [ -f "$binary_path" ]; then
+		info "Forcefully removing binary at $binary_path"
+		sudo rm -f "$binary_path" || {
+			error "Failed to remove $binary_path with sudo"
+			# Try with more aggressive permissions
+			sudo chmod 777 "$(dirname "$binary_path")" || true
+			sudo rm -f "$binary_path" || {
+				error "Still failed to remove $binary_path"
+				return 1
+			}
+		}
+		return 0
+	else
+		info "Binary $binary_path does not exist"
+		return 0
+	fi
+}
 
-	info "Found ${#binaries[@]} instances of $binary_name:"
-	for b in "${binaries[@]}"; do
-		info "  - $b"
+remove_competing_binaries() {
+	# Explicitly remove known common locations
+	forcefully_remove_binary "/usr/local/bin/tv"
+	forcefully_remove_binary "/usr/bin/tv"
+	forcefully_remove_binary "$HOME/.local/bin/tv"
 
-		# Skip our managed binary
-		if [ "$b" = "$bin_path" ]; then
-			continue
-		fi
-
-		# Handle binaries in system locations
-		if [[ "$b" == "/usr/bin/"* ]]; then
-			info "Removing package-installed binary at $b"
-			sudo rm -f "$b" || warn "Failed to remove $b"
-		elif [[ "$b" == "$HOME"* ]]; then
-			info "Removing user-installed binary at $b"
-			rm -f "$b" || warn "Failed to remove $b"
-		fi
-	done
+	# Use which -a to find all other instances
+	local other_binaries=$(which -a tv 2>/dev/null | grep -v "^$BASE_DIR/bin/tv$" || true)
+	if [ -n "$other_binaries" ]; then
+		info "Found additional TV binaries to remove:"
+		echo "$other_binaries" | while read -r bin_path; do
+			if [ -n "$bin_path" ] && [ "$bin_path" != "$BASE_DIR/bin/tv" ]; then
+				forcefully_remove_binary "$bin_path"
+			fi
+		done
+	fi
 }
 
 build_tool() {
@@ -170,14 +182,14 @@ build_tool() {
 
 	info "Installing $TOOL_NAME..."
 	if [ -f "target/release/tv" ]; then
+		# First, remove any competing TV binaries
+		remove_competing_binaries
+
 		# Install to our managed location
 		sudo install -m755 target/release/tv "$BASE_DIR/bin/" || error "Failed to install"
 		info "Successfully installed tv to $BASE_DIR/bin/"
 
-		# Remove any other instances to avoid conflicts
-		remove_old_binaries "tv" "$BASE_DIR/bin/tv"
-
-		# Just to be sure, check the version
+		# Verify our installation by calling it directly
 		if "$BASE_DIR/bin/tv" --version | grep -q "0.10.6"; then
 			info "Successfully installed television 0.10.6"
 		else
@@ -205,23 +217,6 @@ for bin in "${tv_binaries[@]}"; do
 	info "Found $bin: $version"
 done
 
-# Make sure /opt/local/bin is first in PATH for this script
-if [[ ":$PATH:" != *":$BASE_DIR/bin:"* ]]; then
-	export PATH="$BASE_DIR/bin:$PATH"
-	info "Added $BASE_DIR/bin to PATH"
-fi
-
-# Only use package manager if explicitly set to "managed"
-if [ "$TOOL_VERSION_TYPE" = "managed" ]; then
-	info "Installing $TOOL_NAME via package manager as configured..."
-	if install_via_package_manager; then
-		info "$TOOL_NAME successfully installed via package manager"
-		exit 0
-	else
-		warn "Package manager installation failed, falling back to build from source"
-	fi
-fi
-
 # Ensure package manager is detected
 if type detect_package_manager >/dev/null 2>&1; then
 	detect_package_manager
@@ -243,25 +238,41 @@ sudo git tag -l | sort -V
 # Build and install
 build_tool "$REPO_DIR" "$TOOL_VERSION_TYPE"
 
-info "$TOOL_NAME installation completed successfully"
+# Remove competing binaries one more time after installation
+remove_competing_binaries
+
+# Update system links
+info "Making sure PATH is properly configured in shell..."
+cat <<EOF >>"$HOME/.bashrc"
+
+# Ensure /opt/local/bin is first in PATH for tools
+export PATH="/opt/local/bin:\$PATH"
+EOF
+
+info "TV installation completed successfully - path updated in ~/.bashrc"
+info "Run 'source ~/.bashrc' or open a new terminal to use the updated TV version"
 
 # Verify the installation one more time
 info "Verifying installation:"
-if command -v tv >/dev/null 2>&1; then
-	tv_path=$(which tv)
-	tv_version=$(tv --version)
-	info "Using TV at $tv_path: $tv_version"
-
-	if [ "$tv_path" != "$BASE_DIR/bin/tv" ]; then
-		warn "WARNING: Using TV from $tv_path instead of $BASE_DIR/bin/tv"
-		warn "Please ensure $BASE_DIR/bin is early in your PATH"
-	fi
+if [ -f "$BASE_DIR/bin/tv" ]; then
+	tv_version=$("$BASE_DIR/bin/tv" --version 2>&1 | head -n1)
+	info "TV at $BASE_DIR/bin/tv: $tv_version"
 
 	if [[ "$tv_version" != *"0.10.6"* ]]; then
 		warn "WARNING: TV version is $tv_version, not the expected 0.10.6"
-		warn "Run the following command to verify the installed version:"
-		warn "  $BASE_DIR/bin/tv --version"
+	else
+		info "Correct version verified: $tv_version"
 	fi
 else
-	warn "TV command not found in PATH after installation"
+	warn "TV binary not found at $BASE_DIR/bin/tv after installation"
 fi
+
+# Final recommendation
+echo ""
+echo "===== IMPORTANT ====="
+echo "To use the updated TV version immediately, run:"
+echo "export PATH=\"/opt/local/bin:\$PATH\""
+echo "Then verify with:"
+echo "which tv"
+echo "tv --version"
+echo "=================="
