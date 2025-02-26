@@ -131,14 +131,17 @@ build_tool() {
 	(cd "$build_dir" && sudo git config --local --bool core.trustctime false)
 	sudo chmod -R g+w "$build_dir"
 
+	# Always force update to get latest changes
+	sudo git fetch --tags --force || warn "Failed to fetch latest changes"
+
 	# Checkout appropriate version
 	local do_clean_build=0
 	if [ "$version_type" = "stable" ]; then
 		# Try to get latest tag
-		local latest_version=$(git fetch --tags && git tag -l | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+		local latest_version=$(git tag -l | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
 
 		if [ -n "$latest_version" ]; then
-			info "Building version: $latest_version"
+			info "Building stable version: $latest_version"
 			sudo git checkout "$latest_version" || error "Failed to checkout version $latest_version"
 
 			# Check if we need a clean build due to version type switch
@@ -151,17 +154,24 @@ build_tool() {
 			sudo git checkout master || sudo git checkout main || error "Failed to checkout master branch"
 		fi
 	else
+		# For HEAD version, always get the latest from master/main
 		info "Building from latest HEAD"
-		sudo git checkout master || sudo git checkout main || error "Failed to checkout master/main branch"
+		# First try master, then main as fallback branch name
+		if ! sudo git checkout master 2>/dev/null; then
+			sudo git checkout main || error "Failed to checkout main branch"
+		fi
 
 		# Pull latest changes
-		sudo git pull
+		sudo git pull --ff-only || warn "Failed to pull latest changes"
 
 		# Check if we need a clean build due to version type switch
 		if need_clean_build "$current_version" "$version_type"; then
 			info "Switching from stable to development version - performing clean build"
 			do_clean_build=1
 		fi
+
+		# For HEAD builds, always do a clean build to ensure we get the very latest
+		do_clean_build=1
 	fi
 
 	info "Building $TOOL_NAME..."
@@ -216,6 +226,9 @@ main() {
 
 	# Parse tool configuration
 	parse_tool_config "$TOOL_NAME"
+
+	# Always output what version type we're building
+	info "Building $TOOL_NAME version type: $TOOL_VERSION_TYPE"
 
 	# Build and install
 	build_tool "$REPO_DIR" "$TOOL_VERSION_TYPE"

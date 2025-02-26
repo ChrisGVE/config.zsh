@@ -57,7 +57,6 @@ setup_toolchain_dirs() {
 		"$toolchains_dir/zig"
 		"$toolchains_dir/perl"
 		"$toolchains_dir/ruby"
-		"$toolchains_dir/oh-my-posh"
 	)
 
 	for dir in "${dirs[@]}"; do
@@ -499,85 +498,6 @@ install_perl() {
 }
 
 ###############################################################################
-# Oh My Posh Installation
-###############################################################################
-
-install_oh_my_posh() {
-	local oh_my_posh_dir="$BASE_DIR/share/dev/toolchains/oh-my-posh"
-
-	info "Processing Oh My Posh installation..."
-
-	# Create directory
-	sudo mkdir -p "$oh_my_posh_dir"
-	sudo chown root:$ADMIN_GROUP "$oh_my_posh_dir"
-	sudo chmod 775 "$oh_my_posh_dir"
-
-	# Determine platform-specific installation
-	case "$OS_TYPE" in
-	macos)
-		if command -v brew >/dev/null 2>&1; then
-			info "Installing Oh My Posh via Homebrew on macOS"
-			# This is for the user running the script
-			if ! brew list jandedobbeleer/oh-my-posh/oh-my-posh &>/dev/null; then
-				brew install jandedobbeleer/oh-my-posh/oh-my-posh
-			else
-				brew upgrade jandedobbeleer/oh-my-posh/oh-my-posh || true
-			fi
-
-			# Create symlink to Homebrew's oh-my-posh
-			if [ -f "$HOMEBREW_PREFIX/bin/oh-my-posh" ]; then
-				create_managed_symlink "$HOMEBREW_PREFIX/bin/oh-my-posh" "$BASE_DIR/bin/oh-my-posh"
-				TOOLCHAIN_STATES["oh-my-posh"]="installed"
-				TOOLCHAIN_VERSIONS["oh-my-posh"]=$(oh-my-posh --version | head -n1 || echo "unknown")
-			else
-				TOOLCHAIN_STATES["oh-my-posh"]="failed"
-				TOOLCHAIN_VERSIONS["oh-my-posh"]="unknown"
-			fi
-		else
-			info "Homebrew not found, installing Oh My Posh directly"
-			install_oh_my_posh_direct
-		fi
-		;;
-	linux | raspberrypi)
-		install_oh_my_posh_direct
-		;;
-	esac
-}
-
-# Direct installation method for Oh My Posh
-install_oh_my_posh_direct() {
-	local oh_my_posh_dir="$BASE_DIR/share/dev/toolchains/oh-my-posh"
-	local tmp_dir=$(mktemp -d)
-
-	info "Installing Oh My Posh directly from official source..."
-
-	# Download the latest version
-	curl -s https://ohmyposh.dev/install.sh >"$tmp_dir/install.sh"
-	chmod +x "$tmp_dir/install.sh"
-
-	# Install to the toolchain directory
-	sudo bash "$tmp_dir/install.sh" -d "$oh_my_posh_dir"
-
-	# Create symlink
-	if [ -f "$oh_my_posh_dir/oh-my-posh" ]; then
-		create_managed_symlink "$oh_my_posh_dir/oh-my-posh" "$BASE_DIR/bin/oh-my-posh"
-		TOOLCHAIN_STATES["oh-my-posh"]="installed"
-		if command -v oh-my-posh >/dev/null 2>&1; then
-			TOOLCHAIN_VERSIONS["oh-my-posh"]=$(oh-my-posh --version | head -n1 || echo "unknown")
-		else
-			TOOLCHAIN_VERSIONS["oh-my-posh"]="unknown"
-		fi
-	else
-		TOOLCHAIN_STATES["oh-my-posh"]="failed"
-		TOOLCHAIN_VERSIONS["oh-my-posh"]="unknown"
-		warn "Oh My Posh installation may not have completed successfully"
-	fi
-
-	# Clean up
-	rm -rf "$tmp_dir"
-}
-
-###############################################################################
 # Ruby Management
 ###############################################################################
 
@@ -586,138 +506,119 @@ install_ruby() {
 
 	info "Processing Ruby toolchain..."
 
-	# Detect the desired Ruby version
-	local target_version="3.2.2" # We can increase this as newer versions become stable
+	# Detect the desired Ruby version - use a more recent version
+	local target_version="3.4.2" # Latest stable version
 
-	# Get current version (if any)
-	local current_version=""
-	if command -v ruby >/dev/null 2>&1; then
-		current_version=$(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "")
-		info "Found existing Ruby installation: version $current_version"
-	fi
+	# Check if we already have Ruby installed from source at the target version
+	if [ -f "$ruby_dir/bin/ruby" ]; then
+		local installed_version=$("$ruby_dir/bin/ruby" -e 'puts RUBY_VERSION' 2>/dev/null || echo "")
 
-	# Determine if we're already at the target version
-	if [ -n "$current_version" ] && [ "$current_version" = "$target_version" ]; then
-		info "Ruby $target_version is already installed, skipping..."
-		TOOLCHAIN_STATES["ruby"]="current"
-		TOOLCHAIN_VERSIONS["ruby"]="$target_version"
-		return 0
-	fi
-
-	# Install Ruby based on platform
-	case "$OS_TYPE" in
-	macos)
-		if command -v brew >/dev/null 2>&1; then
-			info "Installing Ruby via Homebrew on macOS"
-			brew install ruby
-			# Create symlinks from Homebrew's Ruby to our directory
-			if [ -d "$HOMEBREW_PREFIX/opt/ruby" ]; then
-				sudo mkdir -p "$ruby_dir/bin"
-				create_managed_symlink "$HOMEBREW_PREFIX/opt/ruby/bin/ruby" "$BASE_DIR/bin/ruby"
-				create_managed_symlink "$HOMEBREW_PREFIX/opt/ruby/bin/gem" "$BASE_DIR/bin/gem"
-				create_managed_symlink "$HOMEBREW_PREFIX/opt/ruby/bin/bundle" "$BASE_DIR/bin/bundle"
-				TOOLCHAIN_STATES["ruby"]="installed"
-				TOOLCHAIN_VERSIONS["ruby"]=$(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "unknown")
-			else
-				TOOLCHAIN_STATES["ruby"]="failed"
-				TOOLCHAIN_VERSIONS["ruby"]="unknown"
-				warn "Could not locate Homebrew's Ruby installation"
-			fi
-		else
-			warn "Homebrew not found on macOS, using alternative installation"
-			install_ruby_from_source
-		fi
-		;;
-	linux | raspberrypi)
-		# On Debian/Ubuntu, use the package manager for Ruby
-		case "$PACKAGE_MANAGER" in
-		apt)
-			info "Installing Ruby via apt"
-			sudo apt-get update
-			# Install Ruby development packages
-			sudo apt-get install -y ruby-full ruby-dev build-essential zlib1g-dev
-			;;
-		dnf)
-			info "Installing Ruby via dnf"
-			sudo dnf install -y ruby ruby-devel redhat-rpm-config gcc make zlib-devel
-			;;
-		pacman)
-			info "Installing Ruby via pacman"
-			sudo pacman -Sy --noconfirm ruby
-			;;
-		*)
-			warn "Unsupported package manager for Ruby installation"
-			install_ruby_from_source
+		if [ "$installed_version" = "$target_version" ]; then
+			info "Ruby $target_version is already installed at $ruby_dir"
+			TOOLCHAIN_STATES["ruby"]="current"
+			TOOLCHAIN_VERSIONS["ruby"]="$target_version"
 			return 0
-			;;
-		esac
-
-		# Create symlinks to system Ruby
-		if command -v ruby >/dev/null 2>&1; then
-			local ruby_path=$(command -v ruby)
-			local gem_path=$(command -v gem)
-			local bundle_path=$(command -v bundle)
-
-			sudo mkdir -p "$ruby_dir/bin"
-			create_managed_symlink "$ruby_path" "$BASE_DIR/bin/ruby"
-
-			if [ -n "$gem_path" ]; then
-				create_managed_symlink "$gem_path" "$BASE_DIR/bin/gem"
-			fi
-
-			if [ -n "$bundle_path" ]; then
-				create_managed_symlink "$bundle_path" "$BASE_DIR/bin/bundle"
-			fi
-
-			# Set up gem home in user directory to avoid permission issues
-			if [ ! -d "$HOME/.gem" ]; then
-				mkdir -p "$HOME/.gem"
-			fi
-
-			TOOLCHAIN_STATES["ruby"]="installed"
-			TOOLCHAIN_VERSIONS["ruby"]=$(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "unknown")
 		else
-			TOOLCHAIN_STATES["ruby"]="failed"
-			TOOLCHAIN_VERSIONS["ruby"]="unknown"
-			warn "Ruby installation failed"
+			info "Upgrading Ruby from $installed_version to $target_version"
 		fi
-		;;
-	*)
-		warn "Unsupported platform for Ruby installation"
-		TOOLCHAIN_STATES["ruby"]="skipped"
-		TOOLCHAIN_VERSIONS["ruby"]="unknown"
-		;;
-	esac
+	fi
+
+	# Always prefer source installation for Ruby to get the latest version
+	info "Installing Ruby $target_version from source..."
+	install_ruby_from_source "$ruby_dir" "$target_version"
 }
 
-# Function to install Ruby from source (used as fallback)
+# Function to install Ruby from source
 install_ruby_from_source() {
-	info "Installing Ruby from source..."
-	local ruby_dir="$BASE_DIR/share/dev/toolchains/ruby"
-	local target_version="3.2.2"
+	local ruby_dir="$1"
+	local target_version="$2"
 	local tmp_dir=$(mktemp -d)
+
+	info "Installing Ruby $target_version from source..."
+
+	# Install build dependencies first
+	case "$PACKAGE_MANAGER" in
+	brew)
+		brew install openssl readline
+		;;
+	apt)
+		sudo apt-get update
+		sudo apt-get install -y build-essential libssl-dev libreadline-dev zlib1g-dev
+		;;
+	dnf)
+		sudo dnf install -y gcc make openssl-devel readline-devel zlib-devel
+		;;
+	pacman)
+		sudo pacman -Sy --noconfirm base-devel openssl readline zlib
+		;;
+	esac
 
 	# Download Ruby source
 	curl -L "https://cache.ruby-lang.org/pub/ruby/${target_version%.*}/ruby-${target_version}.tar.gz" -o "$tmp_dir/ruby.tar.gz"
+
+	# Make sure previous installation is cleaned up
+	sudo rm -rf "$ruby_dir"
+	sudo mkdir -p "$ruby_dir"
+	sudo chown root:$ADMIN_GROUP "$ruby_dir"
+	sudo chmod 775 "$ruby_dir"
 
 	# Extract and build
 	cd "$tmp_dir" && tar -xzf ruby.tar.gz && cd "ruby-${target_version}"
 
 	# Configure and build Ruby
-	./configure --prefix="$ruby_dir" && make && sudo make install
+	./configure --prefix="$ruby_dir" --with-openssl-dir=$(command -v openssl >/dev/null && openssl version -d | cut -d' ' -f2 | tr -d '"') && make && sudo make install
+	local build_status=$?
 
-	# Create symlinks
-	if [ -f "$ruby_dir/bin/ruby" ]; then
+	# Create symlinks if build was successful
+	if [ $build_status -eq 0 ] && [ -f "$ruby_dir/bin/ruby" ]; then
 		create_managed_symlink "$ruby_dir/bin/ruby" "$BASE_DIR/bin/ruby"
 		create_managed_symlink "$ruby_dir/bin/gem" "$BASE_DIR/bin/gem"
 		create_managed_symlink "$ruby_dir/bin/bundle" "$BASE_DIR/bin/bundle"
+		create_managed_symlink "$ruby_dir/bin/irb" "$BASE_DIR/bin/irb"
 
 		TOOLCHAIN_STATES["ruby"]="installed"
-		TOOLCHAIN_VERSIONS["ruby"]=$(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "unknown")
+		TOOLCHAIN_VERSIONS["ruby"]=$(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "$target_version")
+		info "Ruby $target_version successfully installed from source"
 	else
 		TOOLCHAIN_STATES["ruby"]="failed"
 		TOOLCHAIN_VERSIONS["ruby"]="unknown"
-		warn "Ruby source installation failed"
+		warn "Ruby source installation failed. Falling back to package manager."
+
+		# Fallback to package manager
+		case "$PACKAGE_MANAGER" in
+		apt)
+			sudo apt-get update
+			sudo apt-get install -y ruby-full ruby-dev
+			;;
+		dnf)
+			sudo dnf install -y ruby ruby-devel
+			;;
+		pacman)
+			sudo pacman -Sy --noconfirm ruby
+			;;
+		brew)
+			brew install ruby
+			;;
+		esac
+
+		# Create symlinks to system Ruby
+		if command -v ruby >/dev/null 2>&1; then
+			local system_ruby_path=$(command -v ruby)
+			local system_gem_path=$(command -v gem)
+
+			create_managed_symlink "$system_ruby_path" "$BASE_DIR/bin/ruby"
+			if [ -n "$system_gem_path" ]; then
+				create_managed_symlink "$system_gem_path" "$BASE_DIR/bin/gem"
+			fi
+
+			TOOLCHAIN_STATES["ruby"]="installed"
+			TOOLCHAIN_VERSIONS["ruby"]=$(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "unknown")
+			info "Ruby installed from package manager: $(ruby -e 'puts RUBY_VERSION' 2>/dev/null || echo "unknown")"
+		else
+			TOOLCHAIN_STATES["ruby"]="failed"
+			TOOLCHAIN_VERSIONS["ruby"]="unknown"
+			warn "Ruby installation failed completely"
+		fi
 	fi
 
 	# Clean up
@@ -775,11 +676,6 @@ main() {
 		warn "Ruby installation failed, continuing..."
 		true
 	}
-	install_oh_my_posh || {
-		warn "Oh My Posh installation failed, continuing..."
-		true
-	}
-
 	# Print installation summary
 	print_summary
 }

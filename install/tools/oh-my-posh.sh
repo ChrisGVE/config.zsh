@@ -28,11 +28,15 @@ VERSION_CMD="--version"
 # Platform-specific installation method
 install_oh_my_posh() {
 	local installation_dir="$BASE_DIR/share/oh-my-posh"
+	local themes_dir="$installation_dir/themes"
 
 	# Create installation directory
 	sudo mkdir -p "$installation_dir"
+	sudo mkdir -p "$themes_dir"
 	sudo chown root:$ADMIN_GROUP "$installation_dir"
+	sudo chown root:$ADMIN_GROUP "$themes_dir"
 	sudo chmod 775 "$installation_dir"
+	sudo chmod 775 "$themes_dir"
 
 	# Determine platform-specific installation
 	case "$OS_TYPE" in
@@ -69,24 +73,67 @@ install_oh_my_posh() {
 # Direct installation method using the official install script
 install_direct() {
 	local installation_dir="$BASE_DIR/share/oh-my-posh"
+	local themes_dir="$installation_dir/themes"
 	local tmp_dir=$(mktemp -d)
 
 	info "Installing Oh My Posh directly from official source..."
 
-	# Download the latest version
-	curl -s https://ohmyposh.dev/install.sh >"$tmp_dir/install.sh"
+	# Create a custom install script that directs themes to our desired location
+	cat >"$tmp_dir/install.sh" <<'EOF'
+#!/bin/bash
+set -e
+
+THEME_LOCATION="$1/themes"
+INSTALL_DIR="$1"
+
+# Use a more compatible curl command for Debian/Raspberry Pi
+download() {
+    curl -fsSL "$1" -o "$2"
+}
+
+# Detect architecture
+ARCH=$(uname -m)
+case $ARCH in
+    x86_64)  ARCH="amd64" ;;
+    armv7l)  ARCH="arm" ;;
+    aarch64) ARCH="arm64" ;;
+    *)       echo "Unsupported architecture: $ARCH"; exit 1 ;;
+esac
+
+# Detect OS
+OS="$(uname -s)"
+case "${OS}" in
+    Linux*)  OS="linux" ;;
+    Darwin*) OS="darwin" ;;
+    *)       echo "Unsupported OS: $OS"; exit 1 ;;
+esac
+
+# Download the binary
+echo "Installing oh-my-posh for ${OS}-${ARCH} in ${INSTALL_DIR}"
+mkdir -p "${INSTALL_DIR}"
+mkdir -p "${THEME_LOCATION}"
+download "https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/posh-${OS}-${ARCH}" "${INSTALL_DIR}/oh-my-posh"
+chmod +x "${INSTALL_DIR}/oh-my-posh"
+
+# Download themes
+echo "Installing oh-my-posh themes in ${THEME_LOCATION}"
+download "https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/themes.zip" "${INSTALL_DIR}/themes.zip"
+unzip -o "${INSTALL_DIR}/themes.zip" -d "${THEME_LOCATION}"
+rm "${INSTALL_DIR}/themes.zip"
+
+echo "Installation complete."
+echo "You can now add oh-my-posh to your shell configuration."
+EOF
+
+	# Make the script executable
 	chmod +x "$tmp_dir/install.sh"
 
-	# Install to the installation directory
-	sudo bash "$tmp_dir/install.sh" -d "$installation_dir"
+	# Run the custom install script with sudo to install to system location
+	sudo "$tmp_dir/install.sh" "$installation_dir"
 
 	# Create symlink if installation succeeded
 	if [ -f "$installation_dir/oh-my-posh" ]; then
 		create_managed_symlink "$installation_dir/oh-my-posh" "$BASE_DIR/bin/oh-my-posh"
-
-		# Clean up themes directory and copy defaults
-		setup_themes "$installation_dir"
-
 		rm -rf "$tmp_dir"
 		return 0
 	else
@@ -95,76 +142,22 @@ install_direct() {
 	fi
 }
 
-# Setup themes for Oh My Posh
-setup_themes() {
-	local installation_dir="$1"
+# Setup themes for user
+setup_user_themes() {
+	local system_themes_dir="$BASE_DIR/share/oh-my-posh/themes"
+	local user_themes_dir="$HOME/.config/zsh/oh-my-posh"
 
-	# Create themes directory
-	sudo mkdir -p "$installation_dir/themes"
-	sudo chown root:$ADMIN_GROUP "$installation_dir/themes"
-	sudo chmod 775 "$installation_dir/themes"
+	# Create user themes directory
+	mkdir -p "$user_themes_dir"
 
-	# Download popular themes if they don't exist
-	local themes_to_download=(
-		"catppuccin_mocha.omp.json"
-		"catppuccin_macchiato.omp.json"
-		"catppuccin_frappe.omp.json"
-		"catppuccin_latte.omp.json"
-		"powerlevel10k_classic.omp.json"
-		"powerlevel10k_rainbow.omp.json"
-		"agnoster.omp.json"
-		"atomic.omp.json"
-		"paradox.omp.json"
-		"quick-term.omp.json"
-		"sonicboom.omp.json"
-		"star.omp.json"
-	)
-
-	for theme in "${themes_to_download[@]}"; do
-		if [ ! -f "$installation_dir/themes/$theme" ]; then
-			sudo curl -s -o "$installation_dir/themes/$theme" \
-				"https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/$theme" ||
-				warn "Failed to download theme: $theme"
-		fi
-	done
-
-	# Set permissions for all theme files
-	sudo chown -R root:$ADMIN_GROUP "$installation_dir/themes"
-	sudo chmod -R 664 "$installation_dir/themes"/*
-}
-
-###############################################################################
-# Main Installation Process
-###############################################################################
-
-main() {
-	info "Starting installation of $TOOL_NAME..."
-
-	# Parse tool configuration
-	parse_tool_config "$TOOL_NAME"
-
-	# Install Oh My Posh
-	if install_oh_my_posh; then
-		# Verify installation
-		if command -v oh-my-posh >/dev/null 2>&1; then
-			local version=$(oh-my-posh --version 2>/dev/null | head -n1)
-			info "Oh My Posh installed successfully - version: $version"
-
-			# Create user config directory if it doesn't exist
-			if [ ! -d "$HOME/.config/zsh/oh-my-posh" ]; then
-				mkdir -p "$HOME/.config/zsh/oh-my-posh"
-			fi
-
-			# Copy a default theme to user config if needed
-			if [ ! -f "$HOME/.config/zsh/oh-my-posh/config.yml" ]; then
-				# Find themes directory
-				local themes_dir="$BASE_DIR/share/oh-my-posh/themes"
-				if [ -d "$themes_dir" ] && [ -f "$themes_dir/catppuccin_mocha.omp.json" ]; then
-					cp "$themes_dir/catppuccin_mocha.omp.json" "$HOME/.config/zsh/oh-my-posh/config.yml"
-					info "Default theme copied to $HOME/.config/zsh/oh-my-posh/config.yml"
-				else
-					# Create a basic config
-					cat >"$HOME/.config/zsh/oh-my-posh/config.yml" <<'EOL'
+	# Copy a default theme to user config if needed
+	if [ ! -f "$user_themes_dir/config.yml" ]; then
+		if [ -d "$system_themes_dir" ] && [ -f "$system_themes_dir/catppuccin_mocha.omp.json" ]; then
+			cp "$system_themes_dir/catppuccin_mocha.omp.json" "$user_themes_dir/config.yml"
+			info "Default theme copied to $user_themes_dir/config.yml"
+		else
+			# Create a basic config
+			cat >"$user_themes_dir/config.yml" <<'EOL'
 {
   "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
   "blocks": [
@@ -215,9 +208,30 @@ main() {
   "version": 2
 }
 EOL
-					info "Basic theme created at $HOME/.config/zsh/oh-my-posh/config.yml"
-				fi
-			fi
+			info "Basic theme created at $user_themes_dir/config.yml"
+		fi
+	fi
+}
+
+###############################################################################
+# Main Installation Process
+###############################################################################
+
+main() {
+	info "Starting installation of $TOOL_NAME..."
+
+	# Parse tool configuration
+	parse_tool_config "$TOOL_NAME"
+
+	# Install Oh My Posh
+	if install_oh_my_posh; then
+		# Verify installation
+		if command -v oh-my-posh >/dev/null 2>&1; then
+			local version=$(oh-my-posh --version 2>/dev/null | head -n1)
+			info "Oh My Posh installed successfully - version: $version"
+
+			# Setup user themes
+			setup_user_themes
 		else
 			warn "Oh My Posh binary not found in PATH after installation"
 		fi
