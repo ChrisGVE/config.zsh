@@ -36,7 +36,6 @@ install_deps() {
 	# Set fallback if still not defined
 	if [ -z "${PACKAGE_MANAGER:-}" ]; then
 		warn "Package manager not detected, using fallback method"
-		# Try to determine package manager
 		if command -v apt-get >/dev/null 2>&1; then
 			PACKAGE_MANAGER="apt"
 		elif command -v dnf >/dev/null 2>&1; then
@@ -78,85 +77,38 @@ install_deps() {
 	esac
 }
 
-install_via_package_manager() {
-	info "Installing $TOOL_NAME via package manager..."
+find_all_binaries() {
+	local binary_name="$1"
 
-	case "$PACKAGE_MANAGER" in
-	brew)
-		brew install television
-		;;
-	apt)
-		sudo apt-get update
-		sudo apt-get install -y television
-		;;
-	dnf)
-		sudo dnf install -y television
-		;;
-	pacman)
-		sudo pacman -Sy --noconfirm television
-		;;
-	*)
-		warn "Unknown package manager: $PACKAGE_MANAGER, cannot install via package manager"
-		return 1
-		;;
-	esac
-
-	# Check if installation succeeded
-	if command -v tv >/dev/null 2>&1; then
-		return 0
-	else
-		return 1
-	fi
+	# Use which to find all instances of the binary in PATH
+	which -a "$binary_name" 2>/dev/null || true
 }
 
-remove_package_manager_version() {
-	info "Removing package manager version of $TOOL_NAME..."
+remove_old_binaries() {
+	local binary_name="$1"
+	local bin_path="$2"
 
-	case "$PACKAGE_MANAGER" in
-	brew)
-		brew uninstall television || true
-		;;
-	apt)
-		sudo apt-get remove -y television || true
-		;;
-	dnf)
-		sudo dnf remove -y television || true
-		;;
-	pacman)
-		sudo pacman -R --noconfirm television || true
-		;;
-	*)
-		warn "Unknown package manager: $PACKAGE_MANAGER, cannot remove via package manager"
-		;;
-	esac
-}
+	# Find all instances of the binary
+	local binaries=($(find_all_binaries "$binary_name"))
 
-find_latest_version_tag() {
-	local repo_dir="$1"
+	info "Found ${#binaries[@]} instances of $binary_name:"
+	for b in "${binaries[@]}"; do
+		info "  - $b"
 
-	# Change to the repository directory
-	cd "$repo_dir" || return
+		# Skip our managed binary
+		if [ "$b" = "$bin_path" ]; then
+			continue
+		fi
 
-	# Ensure we have all tags
-	sudo git fetch --tags --force || warn "Failed to fetch tags"
-
-	# List all tags and filter for version-like tags
-	local all_tags=$(git tag -l)
-	info "Available tags: $all_tags"
-
-	# Filter out 'latest' tag and look for numeric versions without 'v' prefix
-	# For this repo, we want the plain version format (0.10.6, not v0.10.6)
-	local version_tags=$(echo "$all_tags" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$')
-
-	info "Version tags found: $version_tags"
-
-	# Sort tags by version number and get the latest
-	if [ -n "$version_tags" ]; then
-		echo "$version_tags" | sort -V | tail -n1
-	else
-		# Return empty if no version tags found
-		echo ""
-	fi
+		# Handle binaries in system locations
+		if [[ "$b" == "/usr/bin/"* ]]; then
+			info "Removing package-installed binary at $b"
+			sudo rm -f "$b" || warn "Failed to remove $b"
+		elif [[ "$b" == "$HOME"* ]]; then
+			info "Removing user-installed binary at $b"
+			rm -f "$b" || warn "Failed to remove $b"
+		fi
+	done
 }
 
 build_tool() {
@@ -181,23 +133,9 @@ build_tool() {
 
 	# Checkout appropriate version
 	if [ "$version_type" = "stable" ]; then
-		# Try to get latest version using the custom function
-		local latest_version=$(find_latest_version_tag "$build_dir")
-
-		if [ -n "$latest_version" ]; then
-			info "Building version: $latest_version"
-			sudo git checkout "$latest_version" || error "Failed to checkout version $latest_version"
-		else
-			info "No numeric version tags found, trying fallback to 0.10.6"
-			if sudo git tag -l | grep -q "^0.10.6$"; then
-				info "Found version 0.10.6, using it"
-				sudo git checkout "0.10.6" || warn "Failed to checkout 0.10.6"
-			else
-				# If still not found, use main/master branch as fallback
-				info "No known version tags found, using main/master branch"
-				sudo git checkout main 2>/dev/null || sudo git checkout master || error "Failed to checkout main/master branch"
-			fi
-		fi
+		# For stable, explicitly checkout 0.10.6 which we know is the latest
+		info "Building stable version 0.10.6"
+		sudo git checkout "0.10.6" || error "Failed to checkout version 0.10.6"
 	else
 		info "Building from latest HEAD"
 		sudo git checkout main 2>/dev/null || sudo git checkout master || error "Failed to checkout main/master branch"
@@ -232,8 +170,20 @@ build_tool() {
 
 	info "Installing $TOOL_NAME..."
 	if [ -f "target/release/tv" ]; then
+		# Install to our managed location
 		sudo install -m755 target/release/tv "$BASE_DIR/bin/" || error "Failed to install"
 		info "Successfully installed tv to $BASE_DIR/bin/"
+
+		# Remove any other instances to avoid conflicts
+		remove_old_binaries "tv" "$BASE_DIR/bin/tv"
+
+		# Just to be sure, check the version
+		if "$BASE_DIR/bin/tv" --version | grep -q "0.10.6"; then
+			info "Successfully installed television 0.10.6"
+		else
+			warn "Installed version doesn't match expected 0.10.6"
+			"$BASE_DIR/bin/tv" --version
+		fi
 	else
 		error "Binary not found at target/release/tv after build"
 	fi
@@ -247,25 +197,18 @@ build_tool() {
 parse_tool_config "$TOOL_NAME"
 info "Configured $TOOL_NAME version type: $TOOL_VERSION_TYPE"
 
-# Check current installation
-if command -v tv >/dev/null 2>&1; then
-	current_version=$(tv --version 2>&1 | head -n1 | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+" || echo "unknown")
-	info "Currently installed tv version: $current_version"
+# Check for all instances of TV in the PATH
+info "Checking for existing TV installations..."
+tv_binaries=($(find_all_binaries "tv"))
+for bin in "${tv_binaries[@]}"; do
+	version=$("$bin" --version 2>&1 | head -n1)
+	info "Found $bin: $version"
+done
 
-	# Check if installed via package manager
-	is_installed_via_pkg=0
-	if which tv | grep -q "/usr/bin/"; then
-		is_installed_via_pkg=1
-		info "Detected package manager installation of tv"
-	fi
-
-	# If installed via package manager but we want stable/head, uninstall it
-	if [ $is_installed_via_pkg -eq 1 ] && [ "$TOOL_VERSION_TYPE" != "managed" ]; then
-		info "Removing package manager version before building from source..."
-		remove_package_manager_version
-	fi
-else
-	info "TV is not currently installed"
+# Make sure /opt/local/bin is first in PATH for this script
+if [[ ":$PATH:" != *":$BASE_DIR/bin:"* ]]; then
+	export PATH="$BASE_DIR/bin:$PATH"
+	info "Added $BASE_DIR/bin to PATH"
 fi
 
 # Only use package manager if explicitly set to "managed"
@@ -301,3 +244,24 @@ sudo git tag -l | sort -V
 build_tool "$REPO_DIR" "$TOOL_VERSION_TYPE"
 
 info "$TOOL_NAME installation completed successfully"
+
+# Verify the installation one more time
+info "Verifying installation:"
+if command -v tv >/dev/null 2>&1; then
+	tv_path=$(which tv)
+	tv_version=$(tv --version)
+	info "Using TV at $tv_path: $tv_version"
+
+	if [ "$tv_path" != "$BASE_DIR/bin/tv" ]; then
+		warn "WARNING: Using TV from $tv_path instead of $BASE_DIR/bin/tv"
+		warn "Please ensure $BASE_DIR/bin is early in your PATH"
+	fi
+
+	if [[ "$tv_version" != *"0.10.6"* ]]; then
+		warn "WARNING: TV version is $tv_version, not the expected 0.10.6"
+		warn "Run the following command to verify the installed version:"
+		warn "  $BASE_DIR/bin/tv --version"
+	fi
+else
+	warn "TV command not found in PATH after installation"
+fi
