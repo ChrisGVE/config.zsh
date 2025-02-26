@@ -111,26 +111,30 @@ find_latest_version_tag() {
 	# Ensure we have all tags
 	sudo git fetch --tags --force || warn "Failed to fetch tags"
 
-	# List all tags and filter for version-like tags
-	local all_tags=$(git tag -l)
-	info "Available tags: $all_tags"
+	# List all tags excluding 'latest'
+	local all_tags=$(git tag -l | grep -v "^latest$")
 
-	# Filter out 'latest' tag and show full version pattern
-	# First try vX.Y.Z format
-	local version_tags=$(echo "$all_tags" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$')
+	# Create a temporary file to store normalized tags
+	local temp_file=$(mktemp)
 
-	# If no tags found, try X.Y.Z format without 'v' prefix
-	if [ -z "$version_tags" ]; then
-		version_tags=$(echo "$all_tags" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$')
-	fi
+	# Process each tag to normalize format (strip 'v' prefix if exists)
+	echo "$all_tags" | while read -r tag; do
+		if [[ "$tag" =~ ^v[0-9] ]]; then
+			# Remove 'v' prefix for sorting
+			echo "${tag#v}|$tag" >>"$temp_file"
+		elif [[ "$tag" =~ ^[0-9] ]]; then
+			# Keep version as is for sorting
+			echo "$tag|$tag" >>"$temp_file"
+		fi
+	done
 
-	info "Version tags found: $version_tags"
-
-	# Sort tags by version number and get the latest
-	if [ -n "$version_tags" ]; then
-		echo "$version_tags" | sort -V | tail -n1
+	# Sort by normalized version and get the original tag name of the latest version
+	if [ -s "$temp_file" ]; then
+		local latest_tag=$(sort -V -t'|' -k1 "$temp_file" | tail -n1 | cut -d'|' -f2)
+		rm "$temp_file"
+		echo "$latest_tag"
 	else
-		# Return empty if no version tags found
+		rm "$temp_file"
 		echo ""
 	fi
 }
