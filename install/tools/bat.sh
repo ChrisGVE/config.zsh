@@ -32,26 +32,37 @@ VERSION_CMD="--version"
 install_deps() {
 	info "Installing $TOOL_NAME build dependencies..."
 
-	case "$PACKAGE_MANAGER" in
-	brew)
-		brew install cmake pkg-config
-		;;
-	apt)
-		sudo apt-get update
-		sudo apt-get install -y cmake pkg-config libssl-dev
-		;;
-	dnf)
-		sudo dnf install -y cmake pkg-config openssl-devel
-		;;
-	pacman)
-		sudo pacman -Sy --noconfirm cmake pkg-config openssl
+	case "$OS_TYPE" in
+	macos)
+		if command -v brew >/dev/null 2>&1; then
+			brew install cmake pkg-config
+		else
+			warn "Homebrew not found, cannot install dependencies"
+		fi
 		;;
 	*)
-		warn "Unknown package manager: $PACKAGE_MANAGER, trying to install dependencies manually"
-		package_install "cmake"
-		package_install "pkg-config"
+		case "$PACKAGE_MANAGER" in
+		apt)
+			sudo apt-get update
+			sudo apt-get install -y cmake pkg-config
+			;;
+		dnf)
+			sudo dnf install -y cmake pkg-config
+			;;
+		pacman)
+			sudo pacman -Sy --noconfirm cmake pkg-config
+			;;
+		*)
+			warn "Unknown package manager, trying to install dependencies manually"
+			package_install "cmake"
+			package_install "pkg-config"
+			;;
+		esac
 		;;
 	esac
+
+	# Ensure Rust is available
+	ensure_rust_available || error "Rust is required to build bat"
 }
 
 install_via_package_manager() {
@@ -115,8 +126,14 @@ build_tool() {
 	sudo git clean -fd || warn "Failed to clean git repository"
 
 	# Configure git trust for this repository
-	(cd "$build_dir" && sudo git config --local --bool core.trustctime false)
+	(cd "$build_dir" && sudo git config --local core.trustctime false)
 	sudo chmod -R g+w "$build_dir"
+
+	# Check if the repository uses main or master branch
+	local default_branch="master"
+	if sudo git show-ref --verify --quiet refs/heads/main; then
+		default_branch="main"
+	fi
 
 	# Checkout appropriate version
 	if [ "$version_type" = "stable" ]; then
@@ -127,21 +144,70 @@ build_tool() {
 			info "Building version: $latest_version"
 			sudo git checkout "$latest_version" || error "Failed to checkout version $latest_version"
 		else
-			info "No version tags found, using master branch"
-			sudo git checkout master || sudo git checkout main || error "Failed to checkout master branch"
+			info "No version tags found, using $default_branch branch"
+			sudo git checkout $default_branch || error "Failed to checkout $default_branch branch"
 		fi
 	else
 		info "Building from latest HEAD"
-		sudo git checkout master || sudo git checkout main || error "Failed to checkout master/main branch"
+		sudo git checkout $default_branch || error "Failed to checkout $default_branch branch"
 	fi
 
 	info "Building $TOOL_NAME..."
+
+	# For Raspberry Pi, try to use pre-built release if available
+	if [ "$OS_TYPE" = "raspberrypi" ] && [ "$(uname -m)" = "aarch64" ]; then
+		info "Checking for pre-built binary for Raspberry Pi..."
+
+		# Get version without 'v' prefix if it exists
+		local version=${latest_version#v}
+
+		# Try to find deb/rpm package from GitHub releases
+		if [ -n "$latest_version" ]; then
+			local github_url="https://github.com/sharkdp/bat/releases/download/$latest_version"
+			local deb_file="bat_${version}_arm64.deb"
+
+			# Try to download deb file
+			info "Attempting to download pre-built package for ARM64..."
+			if curl -L -o "/tmp/$deb_file" "$github_url/$deb_file"; then
+				info "Installing from deb package..."
+				sudo dpkg -i "/tmp/$deb_file" || warn "Failed to install deb package"
+				rm -f "/tmp/$deb_file"
+
+				# Create bat -> batcat symlink if needed
+				if ! command -v bat >/dev/null 2>&1 && command -v batcat >/dev/null 2>&1; then
+					create_managed_symlink "$(which batcat)" "$BASE_DIR/bin/bat"
+				fi
+
+				return 0
+			else
+				info "Pre-built package not found, building from source"
+			fi
+		fi
+	fi
+
 	# Configure build flags for Rust
 	configure_build_flags
 	export CARGO_BUILD_JOBS="${MAKE_FLAGS#-j}"
 
-	# Build with cargo
-	sudo -E env CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" cargo build --release || error "Failed to build"
+	# Make sure RUSTUP_HOME and CARGO_HOME are set correctly
+	export RUSTUP_HOME="${RUSTUP_HOME:-$BASE_DIR/share/dev/toolchains/rust/rustup}"
+	export CARGO_HOME="${CARGO_HOME:-$BASE_DIR/share/dev/toolchains/rust/cargo}"
+
+	# Build with cargo - use sudo only if needed
+	if [ "$OS_TYPE" = "macos" ]; then
+		# On macOS, use the user's current environment
+		RUSTUP_HOME="$RUSTUP_HOME" \
+			CARGO_HOME="$CARGO_HOME" \
+			CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" \
+			cargo build --release || error "Failed to build"
+	else
+		# On Linux, use sudo with environment
+		sudo -E env PATH="$PATH" \
+			RUSTUP_HOME="$RUSTUP_HOME" \
+			CARGO_HOME="$CARGO_HOME" \
+			CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" \
+			cargo build --release || error "Failed to build"
+	fi
 
 	info "Installing $TOOL_NAME..."
 	sudo install -m755 target/release/bat "$BASE_DIR/bin/" || error "Failed to install"
@@ -161,6 +227,9 @@ build_tool() {
 main() {
 	info "Starting installation of $TOOL_NAME..."
 
+	# Parse tool configuration
+	parse_tool_config "$TOOL_NAME"
+
 	# Detect if we should use package manager
 	local use_pkg_manager=0
 	if [ "$TOOL_VERSION_TYPE" = "managed" ]; then
@@ -173,9 +242,23 @@ main() {
 		use_pkg_manager=1
 	fi
 
+	# For Raspberry Pi, try the package manager first for speed/simplicity
+	if [ "$OS_TYPE" = "raspberrypi" ] && [ "$TOOL_VERSION_TYPE" != "head" ]; then
+		info "On Raspberry Pi, trying package manager first"
+		use_pkg_manager=1
+	fi
+
 	if [ $use_pkg_manager -eq 1 ]; then
 		if install_via_package_manager; then
 			info "$TOOL_NAME successfully installed via package manager"
+
+			# Build the cache if installed successfully
+			if command -v bat >/dev/null 2>&1; then
+				bat cache --build >/dev/null 2>&1 || true
+			elif command -v batcat >/dev/null 2>&1; then
+				batcat cache --build >/dev/null 2>&1 || true
+			fi
+
 			return 0
 		else
 			warn "Package manager installation failed, falling back to build from source"
@@ -191,23 +274,15 @@ main() {
 	# Build and install
 	build_tool "$REPO_DIR" "$TOOL_VERSION_TYPE"
 
-	info "$TOOL_NAME installation completed successfully"
-
-	# If bat-extras is required, set up for it
-	if grep -q "^bat-extras=" "$TOOLS_CONF" 2>/dev/null; then
-		info "bat-extras is configured, ensuring bat cache is built..."
-
-		# Build the syntax highlighting cache
-		if command -v bat >/dev/null 2>&1; then
-			bat cache --build >/dev/null 2>&1 || warn "Failed to build bat cache"
-		elif command -v batcat >/dev/null 2>&1; then
-			batcat cache --build >/dev/null 2>&1 || warn "Failed to build bat cache"
-		fi
+	# Build the cache
+	if command -v bat >/dev/null 2>&1; then
+		bat cache --build >/dev/null 2>&1 || true
+	elif command -v batcat >/dev/null 2>&1; then
+		batcat cache --build >/dev/null 2>&1 || true
 	fi
-}
 
-# Parse tool configuration
-parse_tool_config "$TOOL_NAME"
+	info "$TOOL_NAME installation completed successfully"
+}
 
 # Run the main installation
 main

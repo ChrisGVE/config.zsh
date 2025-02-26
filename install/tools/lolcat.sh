@@ -8,8 +8,7 @@
 # A command that displays text with rainbow colors
 #
 # Dependencies:
-# - Ruby and development files
-# - Build tools
+# - Ruby installed by toolchain or package manager
 ###############################################################################
 
 # Source common functions
@@ -17,7 +16,6 @@ source "$(dirname "$0")/../common.sh"
 
 # Tool-specific configuration
 TOOL_NAME="lolcat"
-REPO_URL="https://github.com/busyloop/lolcat"
 BINARY="lolcat"
 VERSION_CMD="--version"
 
@@ -25,67 +23,112 @@ VERSION_CMD="--version"
 # Installation Functions
 ###############################################################################
 
-install_deps() {
-	info "Installing $TOOL_NAME build dependencies..."
-	package_install "ruby"
-	package_install "ruby-dev"
-	package_install "build-essential"
+install_via_package_manager() {
+	info "Installing $TOOL_NAME via package manager..."
+
+	case "$PACKAGE_MANAGER" in
+	brew)
+		brew install lolcat
+		;;
+	apt)
+		sudo apt-get update
+		sudo apt-get install -y lolcat
+		;;
+	dnf)
+		sudo dnf install -y lolcat
+		;;
+	pacman)
+		sudo pacman -Sy --noconfirm lolcat
+		;;
+	*)
+		warn "Unknown package manager: $PACKAGE_MANAGER, cannot install via package manager"
+		return 1
+		;;
+	esac
+
+	# Check if installation succeeded
+	if command -v lolcat >/dev/null 2>&1; then
+		return 0
+	else
+		return 1
+	fi
 }
 
-build_tool() {
-	local build_dir="$1"
-	local version_type="$2"
+install_via_gem() {
+	info "Installing $TOOL_NAME via Ruby gem..."
 
-	# Ensure build directory exists
-	if [ ! -d "$build_dir" ]; then
-		error "Build directory does not exist: $build_dir"
+	# Ensure Ruby is installed
+	if ! command -v ruby >/dev/null 2>&1; then
+		warn "Ruby not found, cannot install via gem"
 		return 1
 	fi
 
-	# Enter build directory
-	cd "$build_dir" || error "Failed to enter build directory: $build_dir"
-
-	# Reset and clean the repository to handle any local changes
-	sudo -u root git reset --hard || warn "Failed to reset git repository"
-	sudo -u root git clean -fd || warn "Failed to clean git repository"
-
-	# Configure git trust
-	sudo git config --global --add safe.directory "$build_dir"
-
-	# Checkout appropriate version
-	if [ "$version_type" = "stable" ]; then
-		# Try to get latest tag
-		local latest_version=$(git tag -l | grep -E '^v?[0-9]+(\.[0-9]+)*$' | sort -V | tail -n1)
-
-		if [ -n "$latest_version" ]; then
-			info "Building version: $latest_version"
-			sudo -u root git checkout "$latest_version" || error "Failed to checkout version $latest_version"
-		else
-			info "No version tags found, using master branch"
-			sudo -u root git checkout master || sudo -u root git checkout main || error "Failed to checkout master branch"
-		fi
-	else
-		info "Building from latest HEAD"
-		sudo -u root git checkout master || sudo -u root git checkout main || error "Failed to checkout master/main branch"
+	if ! command -v gem >/dev/null 2>&1; then
+		warn "Gem command not found, cannot install Ruby gems"
+		return 1
 	fi
 
-	info "Building and installing $TOOL_NAME..."
-	# Build gem
-	gem build lolcat.gemspec || error "Failed to build gem"
+	# Check if the user can install gems without sudo
+	if gem environment >/dev/null 2>&1; then
+		# Try installing for the current user first
+		gem install lolcat --user-install || {
+			warn "Failed to install for current user, trying with sudo"
+			sudo gem install lolcat
+		}
+	else
+		# Fall back to sudo installation
+		sudo gem install lolcat
+	fi
 
-	# Install gem
-	sudo gem install --no-user-install lolcat-*.gem || error "Failed to install gem"
+	# Check if installation succeeded
+	if command -v lolcat >/dev/null 2>&1; then
+		return 0
+	fi
+
+	# Check if it's in the user's gem bin directory
+	local gem_bin_dir=$(ruby -e 'puts Gem.user_dir' 2>/dev/null)/bin
+	if [ -f "$gem_bin_dir/lolcat" ]; then
+		# Create symlink to make it available in PATH
+		mkdir -p "$HOME/.local/bin"
+		ln -sf "$gem_bin_dir/lolcat" "$HOME/.local/bin/lolcat"
+
+		# Also create a system-wide symlink
+		create_managed_symlink "$gem_bin_dir/lolcat" "$BASE_DIR/bin/lolcat"
+
+		# Add to PATH for this session
+		export PATH="$HOME/.local/bin:$PATH"
+
+		return 0
+	fi
+
+	return 1
 }
 
 ###############################################################################
 # Main Installation Process
 ###############################################################################
 
-# Install dependencies first
-install_deps
+main() {
+	info "Starting installation of $TOOL_NAME..."
 
-# Setup repository in cache
-REPO_DIR=$(setup_tool_repo "$TOOL_NAME" "$REPO_URL")
+	# Parse tool configuration
+	parse_tool_config "$TOOL_NAME"
 
-# Run installation/update
-install_or_update_tool "$TOOL_NAME" "$BINARY" "$VERSION_CMD" "$REPO_DIR" build_tool
+	# Try package manager first
+	if install_via_package_manager; then
+		info "$TOOL_NAME successfully installed via package manager"
+		return 0
+	fi
+
+	# Try gem installation
+	if install_via_gem; then
+		info "$TOOL_NAME successfully installed via gem"
+		return 0
+	fi
+
+	# If we get here, both installation methods failed
+	error "Failed to install $TOOL_NAME using available methods"
+}
+
+# Run the main installation
+main
