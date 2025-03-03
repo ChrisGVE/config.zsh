@@ -142,12 +142,13 @@ _append_to_env() {
 # PATH CONFIGURATIONS
 ####################
 # Core system paths
-_append_to_env "/usr/local/sbin" ":" "PATH"
-_append_to_env "/usr/local/bin" ":" "PATH"
-_append_to_env "/opt/local/bin" ":" "PATH"
-_append_to_env "$HOME/bin" ":" "PATH"
 _append_to_env "$HOME/Scripts" ":" "PATH"
+_append_to_env "$HOME/bin" ":" "PATH"
 _append_to_env "$XDG_BIN_HOME" ":" "PATH"
+_append_to_env "/opt/local/bin" ":" "PATH"
+_append_to_env "/usr/local/bin" ":" "PATH"
+_append_to_env "/usr/local/opt/file-formula/bin" ":" "PATH"
+_append_to_env "/usr/local/sbin" ":" "PATH"
 
 # Platform-specific paths
 if [[ "$OS_TYPE" == "macos" && -n "$HOMEBREW_PREFIX" ]]; then
