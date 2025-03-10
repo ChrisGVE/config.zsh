@@ -184,6 +184,9 @@ if [[ "$OS_TYPE" == "macos" && -n "$HOMEBREW_PREFIX" ]]; then
     
     # GNU tools
     _append_to_env "$HOMEBREW_PREFIX/opt/gnu-sed/libexec/gnubin" ":" "PATH"
+
+    # MacTex
+    eval "$(/usr/libexec/path_helper)"
 else
     # Linux-specific paths
     _append_to_env "/usr/lib/dart/bin" ":" "PATH"
