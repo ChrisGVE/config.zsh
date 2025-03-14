@@ -112,6 +112,32 @@ _find_plugin() {
     echo ""
 }
 
+_prefix_to_env() {
+    local path_segment=$1
+    local separator=$2
+    local env_var_name=$3
+    
+    local current_value=${(P)env_var_name}
+    
+    if [[ "$separator" == ":" ]]; then
+        if [[ ":$current_value:" != *":$path_segment:"* ]]; then
+            if [[ -z $current_value ]]; then
+                export $env_var_name="$path_segment"
+            else
+                export $env_var_name="$path_segment$separator$current_value"
+            fi
+        fi
+    else
+        if [[ " $current_value " != *"$separator$path_segment "* ]]; then
+            if [[ -z $current_value ]]; then
+                export $env_var_name="$separator$path_segment"
+            else
+                export $env_var_name="$separator$path_segment $current_value"
+            fi
+        fi
+    fi
+}
+
 _append_to_env() {
     local path_segment=$1
     local separator=$2
@@ -151,7 +177,8 @@ _append_to_env "/usr/local/opt/file-formula/bin" ":" "PATH"
 _append_to_env "/usr/local/sbin" ":" "PATH"
 
 # Platform-specific paths
-if [[ "$OS_TYPE" == "macos" && -n "$HOMEBREW_PREFIX" ]]; then
+if [[ "$OS_TYPE" == "macos" ]]; then
+  if [[ -n "$HOMEBREW_PREFIX" ]]; then
     # macOS with Homebrew
     _append_to_env "$HOMEBREW_PREFIX/opt/openjdk/bin" ":" "PATH"
     _append_to_env "$HOMEBREW_PREFIX/opt/dart@2.18/bin" ":" "PATH"
@@ -184,9 +211,16 @@ if [[ "$OS_TYPE" == "macos" && -n "$HOMEBREW_PREFIX" ]]; then
     
     # GNU tools
     _append_to_env "$HOMEBREW_PREFIX/opt/gnu-sed/libexec/gnubin" ":" "PATH"
+  fi
 
-    # MacTex
-    eval "$(/usr/libexec/path_helper)"
+  # expat
+_prefix_to_env "/usr/local/opt/expat/bin" ":" "PATH"
+_append_to_env "/usr/local/opt/expat/lib" "-L" "LDFLAGS"
+_append_to_env "/usr/local/opt/expat/include" "-I" "CPPFLAGS"
+_append_to_env "/usr/local/opt/expat/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
+
+  # MacTex
+  eval "$(/usr/libexec/path_helper)"
 else
     # Linux-specific paths
     _append_to_env "/usr/lib/dart/bin" ":" "PATH"
