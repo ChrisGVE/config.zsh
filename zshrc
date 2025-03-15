@@ -222,8 +222,9 @@ _append_to_env "/usr/local/opt/expat/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
   # MacTex
   eval "$(/usr/libexec/path_helper)"
 else
-    # Linux-specific paths
-    _append_to_env "/usr/lib/dart/bin" ":" "PATH"
+  eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
+  # Linux-specific paths
+  _append_to_env "/usr/lib/dart/bin" ":" "PATH"
 fi
 
 ####################
