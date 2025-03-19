@@ -250,7 +250,7 @@ conda() {
         raspberrypi|linux)
             # Try several possible conda locations on Linux
             if [ -d "/opt/local/share/dev/toolchains/conda" ]; then
-                conda_path="/opt/local/share/dev/toolchains/conda"
+                conda_pa:wth="/opt/local/share/dev/toolchains/conda"
             elif [ -d "/usr/local/share/dev/toolchains/conda" ]; then
                 conda_path="/usr/local/share/dev/toolchains/conda" 
             elif [ -d "/opt/conda" ]; then
@@ -285,7 +285,7 @@ conda() {
 # OH-MY-ZSH CONFIGURATION
 ####################
 if [[ -d "$ZSH" ]]; then
-    plugins=(git history-substring-search)
+    plugins=(git docker history-substring-search)
     source $ZSH/oh-my-zsh.sh
 else
     # Basic history configuration without Oh My Zsh
