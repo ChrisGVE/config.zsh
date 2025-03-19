@@ -639,6 +639,9 @@ if [[ "$OS_TYPE" == "macos" ]]; then
     # Tool aliases
     alias lazygit='lazygit --use-config-file="$HOME/.config/lazygit/config.yml,$HOME/.config/lazygit/catppuccin/themes-mergable/mocha/blue.yml"'
     alias disable_gatekeeper="sudo spctl --master-disable"
+
+    # nproc 
+    alias nproc="sysctl -n hw.physicalcpu"
 else
     # Linux-specific aliases
     alias zshconfig="vim $ZDOTDIR/zshrc"
