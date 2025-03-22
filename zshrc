@@ -635,6 +635,7 @@ if [[ "$OS_TYPE" == "macos" ]]; then
     alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_keychron"
     alias qmk_neo="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_neo"
     alias qmk_og="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_firmware"
+    alias qmk_ydkb"qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_ydkb"
 
     # Nvim testing aliases
     alias nvim-telescope='NVIM_APPNAME=nvim-telescope nvim'
