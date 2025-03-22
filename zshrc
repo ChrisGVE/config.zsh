@@ -595,6 +595,7 @@ if command -v batman >/dev/null 2>&1; then
 fi
 
 # Setup ssh-agent
+if [[ "$OS_TYPE" != "macos" ]]; then
 if [ $(ps -p 1 -o comm=) != "systemd" ]; then
     # Non-systemd systems
     if [ $(ps ax | grep ssh-agent | wc -l) -gt 0 ] ; then
@@ -616,6 +617,7 @@ else
         systemctl --user start ssh-agent.service >/dev/null 2>&1
     fi
 fi
+fi
 
 ####################
 # ALIASES
@@ -629,8 +631,10 @@ if [[ "$OS_TYPE" == "macos" ]]; then
     alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
 
     # QMK aliases
-    alias qmk_og="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_firmware"
+    alias qmk_dztech="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_dztech"
     alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_keychron"
+    alias qmk_neo="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_neo"
+    alias qmk_og="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_firmware"
 
     # Nvim testing aliases
     alias nvim-telescope='NVIM_APPNAME=nvim-telescope nvim'
