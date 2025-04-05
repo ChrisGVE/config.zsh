@@ -41,13 +41,13 @@ blocks:
     segments:
       - template: " {{.Icon}} "
         foreground: p:base
-        powerline_symbol: 
+        powerline_symbol: ""
         background: p:subtext1
         type: os
         style: diamond
       - type: text
         leading_diamond: ""
-        powerline_symbol: 
+        powerline_symbol: ""
         template: "{{ if .Env.POSH_VI_MODE }} <b>{{ .Env.POSH_VI_MODE }}</b> {{ end }}"
         foreground: "red"
         background: p:surface1
@@ -68,7 +68,7 @@ blocks:
           max_width: 15
         template: " {{ .Path }} "
         foreground: p:text
-        powerline_symbol: 
+        powerline_symbol: ""
         background_templates:
           [
             "{{if .Env.POSH_VI_MODE }}{{else}}p:blue{{end}}",
@@ -93,7 +93,7 @@ blocks:
           tag_icon: " "
         template: " {{ .UpstreamIcon }} {{ .HEAD }}{{if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }} \uf044 {{ .Working.String }}{{ end }}{{ if and (.Working.Changed) (.Staging.Changed) }} |{{ end }}{{ if .Staging.Changed }} \uf046 {{ .Staging.String }}{{ end }}{{ if gt .StashCount 0 }}  {{ .StashCount }}{{ end }}"
         foreground: p:text
-        powerline_symbol: 
+        powerline_symbol: ""
         background: p:teal
         type: git
         style: powerline
@@ -108,7 +108,7 @@ blocks:
       - type: status
         style: diamond
         background: p:surface1
-        leading_diamond: 
+        leading_diamond: ""
         foreground_templates:
           - "{{if gt .Code 0 }}p:red{{ end }}"
           - "{{if eq .Code 0 }}p:green{{ end }}"
@@ -120,14 +120,14 @@ blocks:
           style: round
           threshold: 5000
         foreground: p:text
-        leading_diamond: 
+        leading_diamond: ""
         background: p:mauve
         type: executiontime
         style: diamond
         template: " {{ .FormattedMs }}  "
       - type: python
         style: diamond
-        leading_diamond: 
+        leading_diamond: ""
         foreground: p:text
         background_templates:
           [
