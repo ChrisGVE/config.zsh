@@ -647,6 +647,10 @@ if [[ "$OS_TYPE" == "macos" ]]; then
 
     # nproc 
     alias nproc="sysctl -n hw.physicalcpu"
+
+    # luarocks
+    alias luarocks-5.4='luarocks --tree=/Users/chris/.local/share/luarocks'
+    alias luarocks-5.1='luarocks --lua-version=5.1 --tree=/Users/chris/.local/share/luarocks-5.1'
 else
     # Linux-specific aliases
     alias zshconfig="vim $ZDOTDIR/zshrc"
