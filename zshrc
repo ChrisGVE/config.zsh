@@ -219,6 +219,9 @@ _append_to_env "/usr/local/opt/expat/lib" "-L" "LDFLAGS"
 _append_to_env "/usr/local/opt/expat/include" "-I" "CPPFLAGS"
 _append_to_env "/usr/local/opt/expat/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
 
+  # ollama
+_append_to_env "/usr/local/opt/ollama/bin" ":" "PATH"
+
   # MacTex
   eval "$(/usr/libexec/path_helper)"
 else
@@ -535,7 +538,21 @@ fi
 # TOOL CONFIGURATIONS
 ####################
 # Setup luarocks
-if type luarocks >/dev/null 2>&1; then eval "$(luarocks path --bin)"; fi
+if type luarocks >/dev/null 2>&1; then
+  # Get LuaRocks path output
+  LUAROCKS_ENV=$(luarocks path --bin)
+
+  # Extract LUA_PATH and LUA_CPATH, but not PATH
+  LUA_PATH_LINE=$(echo "$LUAROCKS_ENV" | grep "LUA_PATH")
+  LUA_CPATH_LINE=$(echo "$LUAROCKS_ENV" | grep "LUA_CPATH")
+
+  # Set up environment without affecting PATH
+  eval "$LUA_PATH_LINE"
+  eval "$LUA_CPATH_LINE"
+
+  # Add LuaRocks bin to PATH only if its not already there
+  [[ ":$PATH:" != *":$HOME/.luarocks/bin:"* ]] && export PATH="$HOME/.luarocks/bin:$PATH"
+fi
 
 # Setup fzf
 if command -v fzf >/dev/null 2>&1; then 
