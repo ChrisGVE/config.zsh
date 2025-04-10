@@ -17,6 +17,9 @@ case "$(uname -s)" in
         fi
         ;;
     Linux*)     
+        if [[ -d /home/linuxbrew/.linuxbrew/homebrew ]]; then
+          eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
+        fi
         export OS_TYPE="linux"
         # More reliable Raspberry Pi detection methods
         if [[ -f /sys/firmware/devicetree/base/model ]]; then
