@@ -1,8 +1,25 @@
 #!/usr/bin/zsh
 
-# Create symlink
-ln -sf "$/HOME/.config/zsh/zshenv" "$HOME/.zshenv"
-ln -sf "$/HOME/.config/zsh/zshrc" "$HOME/.zshrc"
+_create_symlink() {
+  local target="$1"
+  local link="$2"
+
+  # Check if the target exists
+  if [[ ! -e "$target" ]]; then
+    return
+  fi 
+
+  # Check if the link is a file and back it up 
+  if [[ -e "$link" ]]; then
+    cp $link "${source}.bak"
+  fi
+
+  ln -sf "$target" "$link"
+}
+
+# Create the symlink
+_create_symlink "$/HOME/.config/zsh/zshenv" "$HOME/.zshenv"
+_create_symlink "$/HOME/.config/zsh/zshrc" "$HOME/.zshrc"
 
 TRUE=0
 FALSE=0
