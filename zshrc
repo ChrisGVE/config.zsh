@@ -17,8 +17,9 @@ case "$(uname -s)" in
         fi
         ;;
     Linux*)     
+        # Check if homebrew is present and if it is run the shell integration
         if [[ -d /home/linuxbrew/.linuxbrew/homebrew ]]; then
-          eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
         fi
         export OS_TYPE="linux"
         # More reliable Raspberry Pi detection methods
@@ -179,56 +180,56 @@ _append_to_env "/usr/local/bin" ":" "PATH"
 _append_to_env "/usr/local/opt/file-formula/bin" ":" "PATH"
 _append_to_env "/usr/local/sbin" ":" "PATH"
 
+# Homebrew configuration
+if [[ -n "$HOMEBREW_PREFIX" ]]; then
+  # macOS with Homebrew
+  _append_to_env "$HOMEBREW_PREFIX/opt/openjdk/bin" ":" "PATH"
+  _append_to_env "$HOMEBREW_PREFIX/opt/dart@2.18/bin" ":" "PATH"
+  _append_to_env "$HOMEBREW_PREFIX/opt/sphinx-doc/bin" ":" "PATH"
+  
+  # Ruby configuration
+  _append_to_env "$HOMEBREW_PREFIX/opt/ruby/bin" ":" "PATH"
+  _append_to_env "$HOMEBREW_PREFIX/opt/ruby/lib" "-L" "LDFLAGS"
+  _append_to_env "$HOMEBREW_PREFIX/opt/ruby/include" "-I" "CPPFLAGS"
+  _append_to_env "$HOMEBREW_PREFIX/opt/ruby/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
+  
+  # Curl configuration
+  _append_to_env "$HOMEBREW_PREFIX/opt/curl/bin" ":" "PATH"
+  _append_to_env "$HOMEBREW_PREFIX/opt/curl/lib" "-L" "LDFLAGS"
+  _append_to_env "$HOMEBREW_PREFIX/opt/curl/include" "-I" "CPPFLAGS"
+  _append_to_env "$HOMEBREW_PREFIX/opt/curl/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
+  
+  # Compiler tools
+  _append_to_env "$HOMEBREW_PREFIX/opt/arm-none-eabi-gcc@8/bin" ":" "PATH"
+  _append_to_env "$HOMEBREW_PREFIX/opt/arm-none-eabi-binutils/bin" ":" "PATH"
+  _append_to_env "$HOMEBREW_PREFIX/opt/avr-gcc@8/bin" ":" "PATH"
+  _append_to_env "$HOMEBREW_PREFIX/opt/arm-none-eabi-gcc@8/lib" "-L" "LDFLAGS"
+  _append_to_env "$HOMEBREW_PREFIX/opt/avr-gcc@8/lib" "-L" "LDFLAGS"
+  
+  # MySQL configuration
+  _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/bin" ":" "PATH"
+  _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
+  _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/lib" "-L" "LDFLAGS"
+  _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/include" "-I" "CPPFLAGS"
+  
+  # GNU tools
+  _append_to_env "$HOMEBREW_PREFIX/opt/gnu-sed/libexec/gnubin" ":" "PATH"
+fi
+
 # Platform-specific paths
 if [[ "$OS_TYPE" == "macos" ]]; then
-  if [[ -n "$HOMEBREW_PREFIX" ]]; then
-    # macOS with Homebrew
-    _append_to_env "$HOMEBREW_PREFIX/opt/openjdk/bin" ":" "PATH"
-    _append_to_env "$HOMEBREW_PREFIX/opt/dart@2.18/bin" ":" "PATH"
-    _append_to_env "$HOMEBREW_PREFIX/opt/sphinx-doc/bin" ":" "PATH"
-    
-    # Ruby configuration
-    _append_to_env "$HOMEBREW_PREFIX/opt/ruby/bin" ":" "PATH"
-    _append_to_env "$HOMEBREW_PREFIX/opt/ruby/lib" "-L" "LDFLAGS"
-    _append_to_env "$HOMEBREW_PREFIX/opt/ruby/include" "-I" "CPPFLAGS"
-    _append_to_env "$HOMEBREW_PREFIX/opt/ruby/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
-    
-    # Curl configuration
-    _append_to_env "$HOMEBREW_PREFIX/opt/curl/bin" ":" "PATH"
-    _append_to_env "$HOMEBREW_PREFIX/opt/curl/lib" "-L" "LDFLAGS"
-    _append_to_env "$HOMEBREW_PREFIX/opt/curl/include" "-I" "CPPFLAGS"
-    _append_to_env "$HOMEBREW_PREFIX/opt/curl/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
-    
-    # Compiler tools
-    _append_to_env "$HOMEBREW_PREFIX/opt/arm-none-eabi-gcc@8/bin" ":" "PATH"
-    _append_to_env "$HOMEBREW_PREFIX/opt/arm-none-eabi-binutils/bin" ":" "PATH"
-    _append_to_env "$HOMEBREW_PREFIX/opt/avr-gcc@8/bin" ":" "PATH"
-    _append_to_env "$HOMEBREW_PREFIX/opt/arm-none-eabi-gcc@8/lib" "-L" "LDFLAGS"
-    _append_to_env "$HOMEBREW_PREFIX/opt/avr-gcc@8/lib" "-L" "LDFLAGS"
-    
-    # MySQL configuration
-    _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/bin" ":" "PATH"
-    _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
-    _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/lib" "-L" "LDFLAGS"
-    _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/include" "-I" "CPPFLAGS"
-    
-    # GNU tools
-    _append_to_env "$HOMEBREW_PREFIX/opt/gnu-sed/libexec/gnubin" ":" "PATH"
-  fi
-
   # expat
-_prefix_to_env "/usr/local/opt/expat/bin" ":" "PATH"
-_append_to_env "/usr/local/opt/expat/lib" "-L" "LDFLAGS"
-_append_to_env "/usr/local/opt/expat/include" "-I" "CPPFLAGS"
-_append_to_env "/usr/local/opt/expat/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
+  _prefix_to_env "/usr/local/opt/expat/bin" ":" "PATH"
+  _append_to_env "/usr/local/opt/expat/lib" "-L" "LDFLAGS"
+  _append_to_env "/usr/local/opt/expat/include" "-I" "CPPFLAGS"
+  _append_to_env "/usr/local/opt/expat/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
 
   # ollama
-_append_to_env "/usr/local/opt/ollama/bin" ":" "PATH"
+  _append_to_env "/usr/local/opt/ollama/bin" ":" "PATH"
 
   # MacTex
   eval "$(/usr/libexec/path_helper)"
 else
-  eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
   # Linux-specific paths
   _append_to_env "/usr/lib/dart/bin" ":" "PATH"
 fi
@@ -556,6 +557,9 @@ if type luarocks >/dev/null 2>&1; then
   # Add LuaRocks bin to PATH only if its not already there
   [[ ":$PATH:" != *":$HOME/.luarocks/bin:"* ]] && export PATH="$HOME/.luarocks/bin:$PATH"
 fi
+
+# Setup perl
+eval "$(perl -I$XDG_DATA_HOME/perl5/bin/perl5 -Mlocal::lib=$XDG_DATA_HOME/perl5"
 
 # Setup fzf
 if command -v fzf >/dev/null 2>&1; then 
