@@ -163,7 +163,7 @@ while true; do
     current_total=$((${#build_formulae_from_source[@]} + ${#build_casks_from_source[@]}))
     if [[ current_total == total ]]; then
       iter+=1
-      if [[ iter -ge MAX_ITER]]; then
+      if [[ iter -ge MAX_ITER ]]; then
         break
       fi
     else
