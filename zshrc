@@ -559,7 +559,7 @@ if type luarocks >/dev/null 2>&1; then
 fi
 
 # Setup perl
-eval "$(perl -I$XDG_DATA_HOME/perl5/bin/perl5 -Mlocal::lib=$XDG_DATA_HOME/perl5"
+eval "$(perl -I$XDG_DATA_HOME/perl5/bin/perl5 -Mlocal::lib=$XDG_DATA_HOME/perl5)"
 
 # Setup fzf
 if command -v fzf >/dev/null 2>&1; then 
