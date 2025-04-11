@@ -173,7 +173,7 @@ while true; do
 done
 
 # Create PERL install (in $XDG_DATA_HOME/share/perl5)
-PERL_MM_OPT="INSTALL_BASE=$XDG_DATA_HOME/share/perl5" cpan local::lib
+PERL_MM_OPT="INSTALL_BASE=$XDG_DATA_HOME/perl5" cpan local::lib
 
 # Initialize opam repo 
 opam Init
