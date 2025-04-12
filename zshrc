@@ -625,27 +625,31 @@ fi
 
 # Setup ssh-agent
 if [[ "$OS_TYPE" != "macos" ]]; then
-if [ $(ps -p 1 -o comm=) != "systemd" ]; then
-    # Non-systemd systems
-    if [ $(ps ax | grep ssh-agent | wc -l) -gt 0 ] ; then
-        echo "ssh-agent already running" > /dev/null
-    else
-        eval $(ssh-agent -s)
-        if [ "$(ssh-add -l)" = "The agent has no identities." ]; then
-            if [[ -f ~/.ssh/id_rsa ]]; then
-                ssh-add ~/.ssh/id_rsa
-            elif [[ -f ~/.ssh/id_ed25519 ]]; then
-                ssh-add ~/.ssh/id_ed25519
-            fi
-        fi
-    fi
+  if [ $(ps -p 1 -o comm=) != "systemd" ]; then
+      # Non-systemd systems
+      if [ $(ps ax | grep ssh-agent | wc -l) -gt 0 ] ; then
+          echo "ssh-agent already running" > /dev/null
+      else
+          eval $(ssh-agent -s)
+          if [ "$(ssh-add -l)" = "The agent has no identities." ]; then
+              if [[ -f ~/.ssh/id_rsa ]]; then
+                  ssh-add ~/.ssh/id_rsa
+              elif [[ -f ~/.ssh/id_ed25519 ]]; then
+                  ssh-add ~/.ssh/id_ed25519
+              fi
+          fi
+      fi
+  else
+      # On systemd systems, check if ssh-agent is running via systemd
+      if ! systemctl --user is-active ssh-agent >/dev/null 2>&1; then
+          # If not, start it
+          systemctl --user start ssh-agent.service >/dev/null 2>&1
+      fi
+  fi
 else
-    # On systemd systems, check if ssh-agent is running via systemd
-    if ! systemctl --user is-active ssh-agent >/dev/null 2>&1; then
-        # If not, start it
-        systemctl --user start ssh-agent.service >/dev/null 2>&1
-    fi
-fi
+  # Start SSH agent and load keys from keychain
+  eval "$(ssh-agent -s)" > /dev/null 
+  ssh-add --apple-load-keychain 2>/dev/null
 fi
 
 ####################
