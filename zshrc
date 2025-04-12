@@ -232,6 +232,11 @@ if [[ "$OS_TYPE" == "macos" ]]; then
 else
   # Linux-specific paths
   _append_to_env "/usr/lib/dart/bin" ":" "PATH"
+
+  if [[ "$OS_TYPE" == "raspberrypi" ]]; then
+    # Place ghcup folder first such that homebrew can find it
+    _prefix_to_env "$HOME/.ghcup/bin" ":" "PATH"
+  fi
 fi
 
 ####################
