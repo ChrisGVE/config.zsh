@@ -681,11 +681,6 @@ if [[ "$OS_TYPE" == "macos" ]]; then
     # nproc 
     alias nproc="sysctl -n hw.physicalcpu"
 
-    # nvm 
-    export NVM_DIR="$XDG_CONFIG_HOME/nvm"
-    [ -s "/usr/local/opt/nvm/nvm.sh" ] && \. "/usr/local/opt/nvm/nvm.sh"
-    [ -s "/usr/local/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/usr/local/opt/nvm/etc/bash_completion.d/nvm"
-
     # luarocks
     alias luarocks-5.4='luarocks --tree=/Users/chris/.local/share/luarocks'
     alias luarocks-5.1='luarocks --lua-version=5.1 --tree=/Users/chris/.local/share/luarocks-5.1'
