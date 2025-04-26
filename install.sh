@@ -109,7 +109,8 @@ formulae=("perl" "gcc" "shfmt" "rust" "go" "zig" "ghc" "conda" "uv" "television"
   "pipx" "pnpm" "prettier" "prettierd" "pyenv" "pygments" "rage" "ripgrep" "rust-analyzer" "rustc-completion" \
   "sevenzip" "sqlfluff" "showkey" "sphinx-doc" "taview" "task" "taskopen" "taskwarrior-tui" "tenere" "timewarrior" \
   "tree" "trippy" "universal-ctags" "viu" "wget" "wordnet" "xclip" "xsel" "yarn" "yq" "zip" "zsh-autosuggestions" \
-  "zsh-fast-syntax-highlighting" "zsh-history-substring-search" "zsh-vi-mode" "cabal-install" "qmk/qmk/qmk")
+  "zsh-fast-syntax-highlighting" "zsh-history-substring-search" "zsh-vi-mode" "cabal-install" "qmk/qmk/qmk" "chezmoi" \
+  "syncthing")
 
 casks=("1password-cli")
 
