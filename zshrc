@@ -596,6 +596,21 @@ if command -v fzf >/dev/null 2>&1; then
     fi
 fi
 
+fzf_live_grep() {
+  rg --files | fzf --preview="bat --color=always {}" | \
+    xargs -I{} rg --color=always --line-number --no-heading --smart-case "" {} | \
+    fzf --ansi \
+        --preview="echo {} | cut -d':' -f1 | xargs bat --color=always --line-range $(echo {} | cut -d':' -f2):"
+}
+
+fzf_content_search() {
+  local query="$1"
+  rg --color=always --line-number --no-heading --smart-case "$query" | \
+    fzf --ansi \
+        --query="$query" \
+        --preview="echo {} | cut -d':' -f1 | xargs bat --color=always --line-range $(echo {} | cut -d':' -f2):" \
+        --preview-window=right:60%
+}
 # Detect and set up bat/batcat
 if command -v bat >/dev/null 2>&1; then
     export BAT_CMD="bat"
