@@ -1,18 +1,27 @@
 #!/usr/bin/zsh
 
+# disable the use of compaudit 
+# ZSH_DISABLE_COMPFIX=true
+# ZSH_RUN_COMPINIT=false
+
 # For profiling, uncomment:
 # zmodload zsh/zprof
+# setopt prompt_subst
+# PS4='+%x:%I> '  # helps show where you are during tracing
 
-# Increase function nesting limit to prevent "maximum nested function level reached" errors
-FUNCNEST=100
+# trace the use of compaudit
+# typeset -ft compaudit
+# functions compaudit
 
-####################
+# run with ZSH_DEBUG=1 zsh -xv
+
+# ─────────────────────────────────────────────────────────────
 # DETECT OS
-####################
+# ─────────────────────────────────────────────────────────────
 case "$(uname -s)" in
     Darwin*)    
         export OS_TYPE="macos"
-        if command -v brew >/dev/null 2>&1; then
+        if (( $+commands[brew] )); then
             export HOMEBREW_PREFIX="$(brew --prefix)"
         fi
         ;;
@@ -39,23 +48,26 @@ case "$(uname -s)" in
         ;;
 esac
 
-####################
+# ─────────────────────────────────────────────────────────────
 # INITIAL SETUP
-####################
+# ─────────────────────────────────────────────────────────────
 source ~/.zshenv
 
-####################
+# ─────────────────────────────────────────────────────────────
 # CORE EXPORTS
-####################
+# ─────────────────────────────────────────────────────────────
 export CASE_SENSITIVE="false"
 export HYPHEN_INSENSITIVE="true"
 export COMPLETION_WAITING_DOTS="true"
-export ZSH_CUSTOM=$XDG_CONFIG_HOME/zsh/custom
-export ZSH="$ZDOTDIR/ohmyzsh"
 
-####################
+# ─────────────────────────────────────────────────────────────
+# PLUGINS REGISTRY
+# ─────────────────────────────────────────────────────────────
+typeset -ga OMZ_PLUGIN_FILES=()
+
+# ─────────────────────────────────────────────────────────────
 # HELPER FUNCTIONS
-####################
+# ─────────────────────────────────────────────────────────────
 function_exists() {
     declare -f -F $1 > /dev/null
     return $?
@@ -65,6 +77,74 @@ _source_if_exists() {
     if [[ -f "$1" ]]; then
         source "$1"
     fi
+}
+
+# Lazy load completion
+_lazy_complete() {
+	local cmd=$1
+	local compfile=$2
+	local def_func="_${cmd}"
+	eval "_${cmd}_completion() {
+    unfunction _${cmd}_completion
+    source $compfile
+    compdef $def_func $cmd
+  }"
+	compdef _${cmd}_completion $cmd
+}
+
+_set_fpath_from_candidates() {
+  for dir in "$@"; do 
+    [[ -d "$dir" ]] && fpath+=("$dir")
+  done
+}
+
+# Use om-my-zsh components
+_use_omz_components_locally() {
+  local type="$1" name="$2"
+  local target_dir="$ZSH_CONFIG_DIR/${type}s/$name"
+  local archive_url="https://codeload.github.com/ohmyzsh/ohmyzsh/tar.gz/refs/heads/master"
+
+  # If the target directory exists and is not empty, skip download
+  if [[ -d "$target_dir" && -n "$(ls -A "$target_dir" 2>/dev/null)" ]]; then
+    local plugin_file=("$target_dir"/*.plugin.zsh(N))
+    if [[ -n $plugin_file ]]; then
+      OMZ_PLUGIN_FILES+=("$plugin_file")
+    fi
+    return 0
+  fi
+
+  echo "Downloading OMZ ${type}: $name..."
+
+  local tempdir tempdest
+  tempdir="$(mktemp -d)" || {
+    echo "⚠️ Failed to create temp dir" >&2
+    return 1
+  }
+  tempdest="$tempdir/ohmyzsh.tar.gz"
+
+  if ! curl -fsSL "$archive_url" -o "$tempdest"; then
+    echo "⚠️ Failed to download archive from $archive_url" >&2
+    rm -rf "$tempdir"
+    return 1
+  fi
+
+  if ! tar -xzf "$tempdest" -C "$tempdir" --strip-components=1 "ohmyzsh-master/${type}s/$name" 2>/dev/null; then
+    echo "⚠️ Directory ${type}s/$name not found in archive." >&2
+    rm -rf "$tempdir"
+    return 1
+  fi
+
+  mkdir -p "$target_dir"
+  mv "$tempdir/${type}s/$name"/* "$target_dir/" 2>/dev/null
+
+  local plugin_file=("$target_dir"/*.plugin.zsh(N))
+  if [[ -n $plugin_file ]]; then
+    OMZ_PLUGIN_FILES+=("$plugin_file")
+  else
+    echo "⚠️ No loadable file found for ${type} $name" >&2
+  fi
+
+  rm -rf "$tempdir"
 }
 
 # Find plugins across multiple locations
@@ -168,9 +248,9 @@ _append_to_env() {
     fi
 }
 
-####################
+# ─────────────────────────────────────────────────────────────
 # PATH CONFIGURATIONS
-####################
+# ─────────────────────────────────────────────────────────────
 # Core system paths
 _append_to_env "$HOME/Scripts" ":" "PATH"
 _append_to_env "$HOME/bin" ":" "PATH"
@@ -239,9 +319,9 @@ else
   fi
 fi
 
-####################
-# CONDA SETUP (DEFERRED LOADING)
-####################
+# ─────────────────────────────────────────────────────────────
+# CONDA SETUP (LAZY LOADING)
+# ─────────────────────────────────────────────────────────────
 conda() {
     unfunction conda
     
@@ -293,28 +373,18 @@ conda() {
     fi
 }
 
-####################
-# OH-MY-ZSH CONFIGURATION
-####################
-if [[ -d "$ZSH" ]]; then
-    plugins=(git docker history-substring-search)
-    source $ZSH/oh-my-zsh.sh
-else
-    # Basic history configuration without Oh My Zsh
-    autoload -U compinit && compinit
-    
-    # We need to define history-substring-search manually
-    autoload -U history-substring-search-up
-    autoload -U history-substring-search-down
-    zle -N history-substring-search-up
-    zle -N history-substring-search-down
-    bindkey '^[[A' history-substring-search-up
-    bindkey '^[[B' history-substring-search-down
+# ─────────────────────────────────────────────────────────────
+# Bootstrap Zinit Plugin Manager
+# ─────────────────────────────────────────────────────────────
+if [[ ! -d "$ZINIT_HOME" ]]; then
+	echo "Installing zinit to $ZINIT_HOME..."
+	git clone https://github.com/zdharma-continuum/zinit "$ZINIT_HOME"
 fi
+source "$ZINIT_HOME/zinit.zsh"
 
-####################
+# ─────────────────────────────────────────────────────────────
 # HISTORY CONFIGURATION
-####################
+# ─────────────────────────────────────────────────────────────
 setopt BANG_HIST
 setopt EXTENDED_HISTORY
 setopt INC_APPEND_HISTORY
@@ -331,11 +401,11 @@ setopt HIST_VERIFY
 # Explicitly set the search behavior
 HISTORY_SUBSTRING_SEARCH_PREFIXED=1
 
-####################
+# ─────────────────────────────────────────────────────────────
 # ZOXIDE CONFIGURATION 
-####################
+# ─────────────────────────────────────────────────────────────
 # Safely implement zoxide functionality with backwards compatibility
-if command -v zoxide >/dev/null 2>&1; then
+if (( $+commands[zoxide] )); then
     # Save the original cd function
     if ! function_exists _orig_cd; then
         function _orig_cd() {
@@ -386,9 +456,16 @@ if command -v zoxide >/dev/null 2>&1; then
     alias rawcd="_orig_cd"
 fi
 
-####################
+# ─────────────────────────────────────────────────────────────
+# HISTORY CONFIGURATION
+# ─────────────────────────────────────────────────────────────
+autoload -Uz history-substring-search-up history-substring-search-down
+zle -N history-substring-search-up
+zle -N history-substring-search-down
+
+# ─────────────────────────────────────────────────────────────
 # VI MODE AND CURSOR CONFIGURATION
-####################
+# ─────────────────────────────────────────────────────────────
 # Set up initial vi mode state
 export POSH_VI_MODE="INSERT"
 
@@ -418,7 +495,7 @@ function _update_vim_mode() {
     esac
     
     if [[ -n "$POSH_SHELL_VERSION" ]]; then
-        if command -v oh-my-posh >/dev/null 2>&1; then
+      if (( $+commands[oh-my-posh] )); then
             if [[ -f "$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" ]]; then
                 PROMPT="$(oh-my-posh prompt print primary --config="$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" --shell=zsh)"
                 zle && zle reset-prompt
@@ -509,22 +586,33 @@ else
     zle -N zle-line-finish
 fi
 
-####################
+# ─────────────────────────────────────────────────────────────
+# Plugin Configuration
+# ─────────────────────────────────────────────────────────────
+# Oh-my-zsh plugins
+_use_omz_components_locally plugin common-aliases
+_use_omz_components_locally plugin aliases
+_use_omz_components_locally plugin git
+_use_omz_components_locally plugin docker
+
+zinit light zsh-users/zsh-history-substring-search
+zinit light zdharma-continuum/history-search-multi-word
+zinit light zdharma-continuum/fast-syntax-highlighting
+
+# ─────────────────────────────────────────────────────────────
 # OH-MY-POSH CONFIGURATION
-####################
-if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
-    if command -v oh-my-posh >/dev/null 2>&1; then
-        if [[ -f "$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" ]]; then
-            eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml)"
-        else
-            eval "$(oh-my-posh init zsh)"
-        fi
+# ─────────────────────────────────────────────────────────────
+if [[ "$TERM_PROGRAM" != "Apple_Terminal" ]] && (( $+commands[oh-my-posh]));then
+    if [[ -f "$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" ]]; then
+        eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml)"
+    else
+        eval "$(oh-my-posh init zsh)"
     fi
 fi
 
-####################
+# ─────────────────────────────────────────────────────────────
 # PLUGIN CONFIGURATION
-####################
+# ─────────────────────────────────────────────────────────────
 # ZSH-Autosuggestions configuration
 zstyle ':autosuggest:*' min-length 2
 ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
@@ -543,10 +631,9 @@ if [[ -n "$FSH_PATH" ]]; then
     source "$FSH_PATH"
 fi
 
-####################
-# TOOL CONFIGURATIONS
-####################
-# Setup luarocks
+# ─────────────────────────────────────────────────────────────
+# LUAROCKS CONFIGURATION
+# ─────────────────────────────────────────────────────────────
 if type luarocks >/dev/null 2>&1; then
   # Get LuaRocks path output
   LUAROCKS_ENV=$(luarocks path --bin)
@@ -563,11 +650,15 @@ if type luarocks >/dev/null 2>&1; then
   [[ ":$PATH:" != *":$HOME/.luarocks/bin:"* ]] && export PATH="$HOME/.luarocks/bin:$PATH"
 fi
 
-# Setup perl
+# ─────────────────────────────────────────────────────────────
+# PERL CONFIGURATION
+# ─────────────────────────────────────────────────────────────
 eval "$(perl -I$XDG_DATA_HOME/perl5/lib/perl5 -Mlocal::lib=$XDG_DATA_HOME/perl5)"
 
-# Setup fzf
-if command -v fzf >/dev/null 2>&1; then 
+# ─────────────────────────────────────────────────────────────
+# FZF CONFIGURATION
+# ─────────────────────────────────────────────────────────────
+if (( $+commands[fzf] )); then
     # Try different potential sources for fzf completion
     if [[ -f "$HOMEBREW_PREFIX/opt/fzf/shell/completion.zsh" ]]; then
         source "$HOMEBREW_PREFIX/opt/fzf/shell/completion.zsh"
@@ -611,24 +702,33 @@ fzf_content_search() {
         --preview="echo {} | cut -d':' -f1 | xargs bat --color=always --line-range $(echo {} | cut -d':' -f2):" \
         --preview-window=right:60%
 }
+
+live_search() {
+  sk --ansi -i -c 'rg --color=always --line-number "{}"' \
+     --preview 'file=$(echo {1} | cut -d":" -f1); line=$(echo {1} | cut -d":" -f2); bat --color=always --line-range "$line": "$file"'
+}
+
+# ─────────────────────────────────────────────────────────────
+# BAT CONFIGURATION
+# ─────────────────────────────────────────────────────────────
 # Detect and set up bat/batcat
-if command -v bat >/dev/null 2>&1; then
+if (( $+commands[bat] )); then
     export BAT_CMD="bat"
-elif command -v batcat >/dev/null 2>&1; then
+  elif (( $+commands[batcat] )); then
     export BAT_CMD="batcat"
     # Optional: create bat alias if you want to always use 'bat' command
     alias bat="batcat"
 fi
 
 # Setup bat theme
-if command -v fast-theme > /dev/null 2>&1; then
+if (( $+commands[fast-theme] )); then
     if [[ -d "$XDG_DATA_HOME/zsh-fast-syntax-highlighting/themes" ]]; then
         fast-theme XDG:catppuccin-mocha > /dev/null 2>&1
     fi
 fi
 
 # Setup batman (only if it exists and supports --export-env)
-if command -v batman >/dev/null 2>&1; then
+if (( $+commands[batman] )); then
     # Check if batman supports --export-env by testing with --help
     if batman --help 2>&1 | grep -q -- "--export-env"; then
         eval "$(batman --export-env)"
@@ -638,6 +738,9 @@ if command -v batman >/dev/null 2>&1; then
     fi
 fi
 
+# ─────────────────────────────────────────────────────────────
+# SSH CONFIGURATION
+# ─────────────────────────────────────────────────────────────
 # Setup ssh-agent
 if [[ "$OS_TYPE" != "macos" ]]; then
   if [ $(ps -p 1 -o comm=) != "systemd" ]; then
@@ -667,10 +770,9 @@ else
   ssh-add --apple-load-keychain 2>/dev/null
 fi
 
-####################
+# ─────────────────────────────────────────────────────────────
 # ALIASES
-####################
-
+# ─────────────────────────────────────────────────────────────
 # Platform-specific aliases
 if [[ "$OS_TYPE" == "macos" ]]; then
     # Config aliases
@@ -711,7 +813,7 @@ else
 fi
 
 # Cross-platform aliases
-if command -v taskwarrior-tui > /dev/null 2>&1; then alias tt="taskwarrior-tui"; fi
+if (( $+commands[taskwarrior-tui] )); then alias tt="taskwarrior-tui"; fi
 
 # Tmux aliases
 alias tmux_main="tmux new-session -ADs main"
@@ -743,21 +845,57 @@ if [[ -n "$BAT_CMD" ]]; then
     }
 
     # Update FZF with bat preview
-    if command -v fzf >/dev/null 2>&1; then 
+    if (( $+commands[fzf] )); then
         alias fzf="fzf --preview '$BAT_CMD --style=numbers --color=always {}' --preview-window '~3'"
     fi
 fi
 
-####################
-# FINAL SETUP
-####################
-# Load completions
+# ─────────────────────────────────────────────────────────────
+# Completion System Setup
+# ─────────────────────────────────────────────────────────────
+# Clean fpath 
+fpath=()
+_set_fpath_from_candidates \
+  "$ZSH_CONFIG_DIR/plugins/git" \
+  "$ZSH_CONFIG_DIR/plugins/docker" \
+  "$ZSH_CONFIG_DIR/plugins/history-substring-search" \
+  /usr/local/share/zsh/site-functions \
+  /opt/homebrew/share/zsh/site-functions \
+  /usr/local/Cellar/zsh/5.9/share/zsh/functions \
+  "$ZSH_COMPLETIONS_DIR" \
+  "$ZSH_FUNCTIONS_DIR"
+
+# Completion system setup
+ZSH_COMPDUMP="$ZSH_CACHE_DIR/.zcompdump-${HOST}-${ZSH_VERSION}"
 autoload -Uz compinit
-if [[ -n ${ZDOTDIR}/.zcompdump(#qN.mh+24) ]]; then
-    compinit
-else
-    compinit -C
+zstyle ':completion:*' insecure yes
+compinit -C -d "$ZSH_COMPDUMP"
+
+# Recompile if needed
+if [[ ! -s "$ZSH_COMPDUMP" || "$(compaudit | wc -l)" -gt 0 ]]; then
+  compinit -u -d "$ZSH_COMPDUMP"
 fi
+
+# Completion cache configuration
+zstyle ':completion:*' use-cache on
+zstyle ':completion:*' cache-path "$ZSH_COMPLETION_CACHE_DIR"
+
+# lazy loading of completion functions 
+for cmd in fastfetch opam pipx pnpm rage sqlfluff; do
+	for dir in /usr/local/share/zsh/site-functions /opt/homebrew/share/zsh/site-functions; do
+		compfile="$dir/_$cmd"
+		[[ -f "$compfile" ]] && _lazy_complete "$cmd" "$compfile" && break
+	done
+	[[ -f "$ZSH_CONFIG_DIR/plugins/$cmd/_$cmd" ]] && _lazy_complete "$cmd" "$ZSH_CONFIG_DIR/plugins/$cmd/_$cmd"
+done
+
+# ─────────────────────────────────────────────────────────────
+# FINAL SETUP
+# ─────────────────────────────────────────────────────────────
+# Load the plugins
+for file in "${OMZ_PLUGIN_FILES[@]}"; do
+  source "$file"
+done
 
 # Load custom local configuration if it exists
 [[ -f $ZDOTDIR/zshrc.local ]] && source $ZDOTDIR/zshrc.local
