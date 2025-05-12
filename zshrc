@@ -301,6 +301,16 @@ if [[ -n "$HOMEBREW_PREFIX" ]]; then
   _append_to_env "$HOMEBREW_PREFIX/opt/llvm/lib" "-L" "LDFLAGS"
   _append_to_env "$HOMEBREW_PREFIX/opt/llvm/include" "-I" "CPPFLAGS"
   
+  # LLVM@18 config 
+  _append_to_env "$HOMEBREW_PREFIX/opt/llvm@18/bin" ":" "PATH"
+  _append_to_env "$HOMEBREW_PREFIX/opt/llvm@18/lib" "-L" "LDFLAGS"
+  _append_to_env "$HOMEBREW_PREFIX/opt/llvm@18/include" "-I" "CPPFLAGS"
+
+  # LLVM@19 config 
+  _append_to_env "$HOMEBREW_PREFIX/opt/llvm@19/bin" ":" "PATH"
+  _append_to_env "$HOMEBREW_PREFIX/opt/llvm@19/lib" "-L" "LDFLAGS"
+  _append_to_env "$HOMEBREW_PREFIX/opt/llvm@19/include" "-I" "CPPFLAGS"
+
   # MySQL configuration
   _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/bin" ":" "PATH"
   _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/lib/pkgconfig" ":" "PKG_CONFIG_PATH"
