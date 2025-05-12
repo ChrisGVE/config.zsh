@@ -1,3 +1,12 @@
 [submodule "ohmyzsh"]
   path = ohmyzsh
   url = https://github.com/ohmyzsh/ohmyzsh.git
+[submodule "themes/bat"]
+	path = themes/bat
+	url = https://github.com/catppuccin/bat.git
+[submodule "themes/fzf"]
+	path = themes/fzf
+	url = https://github.com/catppuccin/fzf.git
+[submodule "themes/zsh-syntax-highlighting"]
+	path = themes/zsh-syntax-highlighting
+	url = https://github.com/catppuccin/zsh-syntax-highlighting.git
