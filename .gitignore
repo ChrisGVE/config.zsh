@@ -1,8 +1,8 @@
 .zsh_history
 .DS_Store
 .zcompdump
-.zcompdump-nAragorn-5.9
-.zcompdump-nAragorn-5.9.zwc
+.zcompdump-*-5.9
+.zcompdump-*-5.9.zwc
 .zshrc.post-oh-my-zsh
 .zshrc.pre-oh-my-zsh
 .zcompdump-Zorin-PVP-5.8.1
