@@ -1,4 +1,4 @@
-#!/usr/bin/zsh
+#!/usr/bin/env zsh
 
 # disable the use of compaudit 
 # ZSH_DISABLE_COMPFIX=true
@@ -15,6 +15,16 @@
 
 # run with ZSH_DEBUG=1 zsh -xv
 
+# ─────────────────────────────────────────────────────────────
+# CHECKLIST
+# ─────────────────────────────────────────────────────────────
+# TODO: Replace the manual plugin handling and setup zinit
+# TODO: Optimize loading using built-in zinit functionalities 
+# TODO: Check unused functions as candidates for removal 
+# FIX:  No color in the interface (e.g. with ls or l)
+# PERF: Audit performance after the above changes
+#
+#
 # ─────────────────────────────────────────────────────────────
 # DETECT OS
 # ─────────────────────────────────────────────────────────────
@@ -63,7 +73,7 @@ export COMPLETION_WAITING_DOTS="true"
 # ─────────────────────────────────────────────────────────────
 # PLUGINS REGISTRY
 # ─────────────────────────────────────────────────────────────
-typeset -ga OMZ_PLUGIN_FILES=()
+# typeset -ga OMZ_PLUGIN_FILES=()
 
 # ─────────────────────────────────────────────────────────────
 # HELPER FUNCTIONS
@@ -391,7 +401,7 @@ setopt INC_APPEND_HISTORY
 setopt SHARE_HISTORY
 setopt HIST_EXPIRE_DUPS_FIRST
 setopt HIST_IGNORE_DUPS
-setopt HIST_IGNORE_ALL_DUPS
+# setopt HIST_IGNORE_ALL_DUPS
 setopt HIST_FIND_NO_DUPS
 setopt HIST_IGNORE_SPACE
 setopt HIST_SAVE_NO_DUPS
@@ -400,6 +410,44 @@ setopt HIST_VERIFY
 
 # Explicitly set the search behavior
 HISTORY_SUBSTRING_SEARCH_PREFIXED=1
+
+# ─────────────────────────────────────────────────────────────
+# LS COLORS & CORE ALIASES ( <<< NEW SECTION >>> )
+# ─────────────────────────────────────────────────────────────
+# Setup LS_COLORS using dircolors if available
+if (( $+commands[dircolors] )); then
+  # Example using standard theme:
+  eval "$(dircolors -b)"
+  # Example using custom file (if you have one):
+  # [[ -f "$XDG_CONFIG_HOME/dircolors/config" ]] && eval "$(dircolors -b "$XDG_CONFIG_HOME/dircolors/config")"
+
+  # Optional: Use LS_COLORS for Zsh completion coloring
+  zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+fi
+
+# Basic Aliases including LS coloring based on OS
+alias ..="cd .."
+alias ...="cd ../.."
+
+# Determine if 'ls' supports '--color' (GNU) or '-G' (BSD)
+local ls_cmd='ls'
+if GRC=$(which grc); then # Use grc if available
+    ls_cmd='grc --colour=auto ls'
+elif ls --color=auto -d / >/dev/null 2>&1; then # GNU ls
+    alias ls='ls --color=auto -F' # -F adds indicators (/, *, @)
+    alias l='ls -lAh --color=auto'
+    alias la='ls -A --color=auto'
+    alias ll='ls -lh --color=auto' # long format, human-readable sizes
+else # BSD ls (macOS default)
+    alias ls='ls -GF' # -G enables color, -F adds indicators
+    alias l='ls -lAh' # -G implicit via ls alias
+    alias la='ls -A'  # -G implicit
+    alias ll='ls -lh' # -G implicit
+fi
+# Add any other preferred aliases, e.g., grep
+alias grep='grep --color=auto'
+alias egrep='egrep --color=auto'
+alias fgrep='fgrep --color=auto'
 
 # ─────────────────────────────────────────────────────────────
 # ZOXIDE CONFIGURATION 
@@ -459,9 +507,9 @@ fi
 # ─────────────────────────────────────────────────────────────
 # HISTORY CONFIGURATION
 # ─────────────────────────────────────────────────────────────
-autoload -Uz history-substring-search-up history-substring-search-down
-zle -N history-substring-search-up
-zle -N history-substring-search-down
+# autoload -Uz history-substring-search-up history-substring-search-down
+# zle -N history-substring-search-up
+# zle -N history-substring-search-down
 
 # ─────────────────────────────────────────────────────────────
 # VI MODE AND CURSOR CONFIGURATION
@@ -473,131 +521,212 @@ export POSH_VI_MODE="INSERT"
 typeset -g VIM_MODE_UPDATING=0
 
 # Function to update cursor and mode and refresh prompt
+# function _update_vim_mode() {
+#     # Check if we're already updating to prevent recursion
+#     if (( VIM_MODE_UPDATING )); then
+#         return
+#     fi
+#
+#     # Set flag to indicate we're updating
+#     VIM_MODE_UPDATING=1
+#
+#     local mode=$1
+#     export POSH_VI_MODE="$mode"
+#
+#     # Set cursor shape based on mode
+#     # 1: blinking block, 2: steady block, 3: blinking underline, 4: steady underline, 5: blinking bar, 6: steady bar
+#     case $mode in
+#         "INSERT")
+#             echo -ne '\e[5 q' # Blinking bar
+#             ;;
+#         *)
+#             echo -ne '\e[2 q' # Block cursor
+#             ;;
+#     esac
+#
+#
+#     if [[ -n "$POSH_SHELL_VERSION" ]] && (( $+commands[oh-my-posh] )) && [[ -f "$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" ]]; then
+#         # Use zle reset-prompt for efficient refresh
+#           zle && zle reset-prompt
+#     fi
+#
+#     # if [[ -n "$POSH_SHELL_VERSION" ]]; then
+#     #   if (( $+commands[oh-my-posh] )); then
+#     #         if [[ -f "$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" ]]; then
+#     #             PROMPT="$(oh-my-posh prompt print primary --config="$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" --shell=zsh)"
+#     #             zle && zle reset-prompt
+#     #         fi
+#     #     fi
+#     # fi
+#
+#     # Clear the flag when we're done
+#     VIM_MODE_UPDATING=0
+# }
 function _update_vim_mode() {
-    # Check if we're already updating to prevent recursion
-    if (( VIM_MODE_UPDATING )); then
-        return
-    fi
-    
-    # Set flag to indicate we're updating
+    # Uncomment for debugging if issues persist:
+    # echo "DEBUG: _update_vim_mode called with mode: $1. Current POSH_VI_MODE: $POSH_VI_MODE. Updating: $VIM_MODE_UPDATING" >&2
+
+    if (( VIM_MODE_UPDATING )); then return; fi
     VIM_MODE_UPDATING=1
-    
-    local mode=$1
-    export POSH_VI_MODE="$mode"
-    
-    case $mode in
+    local target_mode="$1"
+
+    # Update cursor shape first
+    case "$target_mode" in
         "INSERT")
-            echo -ne '\e[5 q' # Beam cursor
-            ;;
+            echo -ne '\e[5 q' ;; # Blinking beam
         *)
-            echo -ne '\e[1 q' # Block cursor
-            ;;
+            echo -ne '\e[2 q' ;; # Steady block (for NORMAL, VISUAL, etc.)
     esac
-    
-    if [[ -n "$POSH_SHELL_VERSION" ]]; then
-      if (( $+commands[oh-my-posh] )); then
-            if [[ -f "$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" ]]; then
-                PROMPT="$(oh-my-posh prompt print primary --config="$XDG_CONFIG_HOME/zsh/oh-my-posh/config.yml" --shell=zsh)"
-                zle && zle reset-prompt
-            fi
+
+    # Update POSH_VI_MODE only if it changed, then refresh prompt
+    if [[ "$POSH_VI_MODE" != "$target_mode" ]]; then
+        export POSH_VI_MODE="$target_mode"
+        # echo "DEBUG: POSH_VI_MODE exported as $POSH_VI_MODE" >&2 # For debugging
+
+        # If Oh My Posh is active, trigger a prompt refresh.
+        # OMP's own hooks set by 'oh-my-posh init zsh' should handle the update.
+        if [[ -n "$POSH_SHELL_VERSION" ]] && (( $+commands[oh-my-posh] )); then
+            # echo "DEBUG: Calling zle reset-prompt for OMP" >&2 # For debugging
+            zle reset-prompt
         fi
     fi
-    
-    # Clear the flag when we're done
     VIM_MODE_UPDATING=0
 }
 
-# Initialize zsh-vi-mode
-ZVM_PATH=$(_find_plugin "zsh-vi-mode" "zsh-vi-mode.plugin.zsh")
-if [[ -n "$ZVM_PATH" ]]; then
-    source "$ZVM_PATH"
-    
-    # Define mode switching function
-    function zvm_after_select_vi_mode() {
-        case $ZVM_MODE in
-            $ZVM_MODE_NORMAL)
-                _update_vim_mode "NORMAL"
-                ;;
-            $ZVM_MODE_INSERT)
-                _update_vim_mode "INSERT"
-                ;;
-            $ZVM_MODE_VISUAL)
-                _update_vim_mode "VISUAL"
-                ;;
-            $ZVM_MODE_VISUAL_LINE)
-                _update_vim_mode "V-LINE"
-                ;;
-            $ZVM_MODE_REPLACE)
-                _update_vim_mode "REPLACE"
-                ;;
-        esac
-    }
-    
-    # Handle key bindings after vi-mode initialization
-    function zvm_after_init() {
-        # Set initial cursor shape
-        echo -ne '\e[5 q'
-        
-        # History search bindings for both modes
-        bindkey -M vicmd '^[[A' history-substring-search-up
-        bindkey -M vicmd '^[[B' history-substring-search-down
-        bindkey -M viins '^[[A' history-substring-search-up
-        bindkey -M viins '^[[B' history-substring-search-down
-        
-        # Additional key bindings
-        bindkey -M viins '^?' backward-delete-char
-        bindkey -M viins '^n' expand-or-complete
-        bindkey -M viins '^p' reverse-menu-complete
-    }
-else
-    # Basic vi mode if plugin not available
-    bindkey -v
-    # Make Vi mode transitions faster
-    export KEYTIMEOUT=1
-    
-    # Setup similar keybindings without zsh-vi-mode
-    bindkey '^n' expand-or-complete
-    bindkey '^p' reverse-menu-complete
-    
-    # Set up line init handler
-    function zle-line-init() {
-        _update_vim_mode "INSERT"
-        zle -K viins # Ensure we're in insert mode
-    }
-    zle -N zle-line-init
 
-    # Set up keymap handler
-    function zle-keymap-select() {
-        case ${KEYMAP} in
-            vicmd)
-                _update_vim_mode "NORMAL"
-                ;;
-            main|viins)
-                _update_vim_mode "INSERT"
-                ;;
-        esac
-    }
-    zle -N zle-keymap-select
+# Initialize zsh-vi-mode
+# ZVM_PATH=$(_find_plugin "zsh-vi-mode" "zsh-vi-mode.plugin.zsh")
+
+# if [[ -n "$ZVM_PATH" ]]; then
+#     source "$ZVM_PATH"
+#
+# Define mode switching function
+function zvm_after_select_vi_mode() {
+    case $ZVM_MODE in
+        $ZVM_MODE_NORMAL)
+            _update_vim_mode "NORMAL"
+            ;;
+        $ZVM_MODE_INSERT)
+            _update_vim_mode "INSERT"
+            ;;
+        $ZVM_MODE_VISUAL)
+            _update_vim_mode "VISUAL"
+            ;;
+        $ZVM_MODE_VISUAL_LINE)
+            _update_vim_mode "V-LINE"
+            ;;
+        $ZVM_MODE_REPLACE)
+            _update_vim_mode "REPLACE"
+            ;;
+        *)
+            _update_vim_mode "$ZVM_MODE"  # Fallback if needed
+            ;;
+    esac
+}
     
-    # Reset cursor on exit
-    function zle-line-finish() {
-        echo -ne '\e[5 q'
-    }
-    zle -N zle-line-finish
-fi
+# Handle key bindings after vi-mode initialization
+function zvm_after_init() {
+    # Set initial cursor shape
+    echo -ne '\e[5 q'
+    
+    # # History search bindings for both modes
+    # bindkey -M vicmd '^[[A' history-substring-search-up
+    # bindkey -M vicmd '^[[B' history-substring-search-down
+    # bindkey -M viins '^[[A' history-substring-search-up
+    # bindkey -M viins '^[[B' history-substring-search-down
+  bindkey -M vicmd "${terminfo[kcuu1]:-^[[A]}" history-substring-search-up
+  bindkey -M vicmd "${terminfo[kcud1]:-^[[B]}" history-substring-search-down
+  bindkey -M viins "${terminfo[kcuu1]:-^[[A]}" history-substring-search-up
+  bindkey -M viins "${terminfo[kcud1]:-^[[B]}" history-substring-search-down
+    
+    # Additional key bindings
+    bindkey -M viins '^?' backward-delete-char
+    # bindkey -M viins '^n' expand-or-complete
+    # bindkey -M viins '^p' reverse-menu-complete
+}
+# else
+#     # Basic vi mode if plugin not available
+#     bindkey -v
+#     # Make Vi mode transitions faster
+#     export KEYTIMEOUT=1
+#
+#     # Setup similar keybindings without zsh-vi-mode
+#     bindkey '^n' expand-or-complete
+#     bindkey '^p' reverse-menu-complete
+#
+#     # Set up line init handler
+#     function zle-line-init() {
+#         _update_vim_mode "INSERT"
+#         zle -K viins # Ensure we're in insert mode
+#     }
+#     zle -N zle-line-init
+#
+#     # Set up keymap handler
+#     function zle-keymap-select() {
+#         case ${KEYMAP} in
+#             vicmd)
+#                 _update_vim_mode "NORMAL"
+#                 ;;
+#             main|viins)
+#                 _update_vim_mode "INSERT"
+#                 ;;
+#         esac
+#     }
+#     zle -N zle-keymap-select
+#
+#     # Reset cursor on exit
+#     function zle-line-finish() {
+#         echo -ne '\e[5 q'
+#     }
+#     zle -N zle-line-finish
+# fi
 
 # ─────────────────────────────────────────────────────────────
-# Plugin Configuration
+# ZINIT PLUGINS
 # ─────────────────────────────────────────────────────────────
 # Oh-my-zsh plugins
-_use_omz_components_locally plugin common-aliases
-_use_omz_components_locally plugin aliases
-_use_omz_components_locally plugin git
-_use_omz_components_locally plugin docker
+# _use_omz_components_locally plugin common-aliases
+# _use_omz_components_locally plugin aliases
+# _use_omz_components_locally plugin git
+# _use_omz_components_locally plugin docker
+#
+# zinit light zsh-users/zsh-history-substring-search
+# zinit light zdharma-continuum/history-search-multi-word
+# zinit light zdharma-continuum/fast-syntax-highlighting
 
-zinit light zsh-users/zsh-history-substring-search
+# --- Oh My Zsh Libs/Plugins ---
+# Use 'snippet' for OMZ components. OMZP:: shorthand for ohmyzsh/ohmyzsh/plugins/
+# OMZL:: shorthand for ohmyzsh/ohmyzsh/lib/
+# Consider adding 'defer' if they aren't needed immediately at startup
+# zinit snippet OMZL::theme-and-appearance.zsh defer'1' # If dircolors isn't enough
+zinit snippet OMZP::common-aliases/common-aliases.plugin.zsh #defer'1'
+zinit snippet OMZP::aliases/aliases.plugin.zsh #defer'1'
+zinit snippet OMZP::git/git.plugin.zsh #defer'1'
+zinit snippet OMZP::docker/docker.plugin.zsh #defer'1'
+
+# --- Core Functionality Plugins ---
+zinit light zsh-users/zsh-autosuggestions
+zinit light zsh-users/zsh-history-substring-search # Let this load relatively early
 zinit light zdharma-continuum/history-search-multi-word
-zinit light zdharma-continuum/fast-syntax-highlighting
+zinit light jeffreytse/zsh-vi-mode # Loads the plugin, will use hooks defined above
+
+# --- FZF Integration ---
+# Let Zinit handle sourcing fzf's keybindings and completions.
+# Use 'load' to apply 'ice' commands if needed, or 'light' if defaults work.
+zinit light junegunn/fzf
+
+# zinit load junegunn/fzf \
+#     id-as"fzf" \
+#     as"program" \
+#     atclone"./install --bin; exec zsh" \
+#     atpull"%atclone" \
+#     pick"$ZINIT_HOME/plugins/junegunn---fzf/bin/fzf" \
+#     src"shell/key-bindings.zsh" \
+#     src"shell/completion.zsh"
+
+# --- Syntax Highlighting ---
+# Load fast-syntax-highlighting late. `defer'3'` is typically safe.
+zinit light zdharma-continuum/fast-syntax-highlighting #defer'3'
 
 # ─────────────────────────────────────────────────────────────
 # OH-MY-POSH CONFIGURATION
@@ -614,22 +743,70 @@ fi
 # PLUGIN CONFIGURATION
 # ─────────────────────────────────────────────────────────────
 # ZSH-Autosuggestions configuration
+# zstyle ':autosuggest:*' min-length 2
+# ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
+# ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+#
+# # Source zsh-autosuggestions if available
+# AUTOSUGGESTIONS_PATH=$(_find_plugin "zsh-autosuggestions" "zsh-autosuggestions.zsh")
+# if [[ -n "$AUTOSUGGESTIONS_PATH" ]]; then
+#     source "$AUTOSUGGESTIONS_PATH"
+# fi
+#
+# # Fast-syntax-highlighting (load last to properly highlight everything)
+# # First try different potential locations
+# FSH_PATH=$(_find_plugin "fast-syntax-highlighting" "fast-syntax-highlighting.plugin.zsh")
+# if [[ -n "$FSH_PATH" ]]; then
+#     source "$FSH_PATH"
+# fi
+
+
+# --- ZSH-Autosuggestions ---
 zstyle ':autosuggest:*' min-length 2
-ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
-ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+export ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
+export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+# Bind keys if defaults conflict or you prefer others
+# bindkey '^ ' autosuggest-accept # Example: Ctrl+Space to accept suggestion
 
-# Source zsh-autosuggestions if available
-AUTOSUGGESTIONS_PATH=$(_find_plugin "zsh-autosuggestions" "zsh-autosuggestions.zsh")
-if [[ -n "$AUTOSUGGESTIONS_PATH" ]]; then
-    source "$AUTOSUGGESTIONS_PATH"
+# --- FZF Configuration ---
+# Keep your FZF_DEFAULT_OPTS export here
+# Ensure fzf command is available before getting version
+if (( $+commands[fzf] )); then
+  fzf_version=$(fzf --version | awk '{print $1}')
+  fzf_req_version="0.57.0" # Your required version for the theme
+  if [ "$(printf '%s\n' "$fzf_req_version" "$fzf_version" | sort -V | head -n1)" = "$fzf_req_version" ]; then
+    export FZF_DEFAULT_OPTS=" \
+      --color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
+      --color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
+      --color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 \
+      --color=selected-bg:#45475a \
+      --multi \
+      --height=80% \
+      --layout=reverse \
+      --border=rounded \
+      --preview-window='right:60%:border-sharp' \
+      --bind='ctrl-/:toggle-preview' \
+      --bind='?:toggle-preview' "
+      # Add preview settings here if desired globally
+      # --preview 'bat --color=always --style=numbers --line-range=:500 {}'"
+  fi
 fi
 
-# Fast-syntax-highlighting (load last to properly highlight everything)
-# First try different potential locations
-FSH_PATH=$(_find_plugin "fast-syntax-highlighting" "fast-syntax-highlighting.plugin.zsh")
-if [[ -n "$FSH_PATH" ]]; then
-    source "$FSH_PATH"
-fi
+# <<< CHANGE >>> Removed manual FZF sourcing block
+
+# --- History Substring Search ---
+# Configuration for zsh-history-substring-search (place after Zinit load & compinit)
+# The zle -N calls and bindkey commands are usually best placed after compinit.
+# Moved to Completion section below.
+
+# --- zsh-vi-mode ---
+# Specific zsh-vi-mode settings could go here if needed, beyond the hooks.
+export KEYTIMEOUT=1 # Make ESC transition faster (useful for Vi mode)
+
+# <<< CHANGE >>> Removed manual autosuggestions source block
+
+# <<< CHANGE >>> Removed manual fast-syntax-highlighting source block
+
 
 # ─────────────────────────────────────────────────────────────
 # LUAROCKS CONFIGURATION
@@ -656,36 +833,36 @@ fi
 eval "$(perl -I$XDG_DATA_HOME/perl5/lib/perl5 -Mlocal::lib=$XDG_DATA_HOME/perl5)"
 
 # ─────────────────────────────────────────────────────────────
-# FZF CONFIGURATION
+# FZF HELPER FUNCTIONS
 # ─────────────────────────────────────────────────────────────
-if (( $+commands[fzf] )); then
-    # Try different potential sources for fzf completion
-    if [[ -f "$HOMEBREW_PREFIX/opt/fzf/shell/completion.zsh" ]]; then
-        source "$HOMEBREW_PREFIX/opt/fzf/shell/completion.zsh"
-        source "$HOMEBREW_PREFIX/opt/fzf/shell/key-bindings.zsh"
-    elif [[ -f "/usr/share/doc/fzf/examples/completion.zsh" ]]; then
-        source "/usr/share/doc/fzf/examples/completion.zsh"
-        source "/usr/share/doc/fzf/examples/key-bindings.zsh"
-    elif [[ -f "$ZDOTDIR/plugins/fzf/completion.zsh" ]]; then
-        source "$ZDOTDIR/plugins/fzf/completion.zsh"
-        source "$ZDOTDIR/plugins/fzf/key-bindings.zsh"
-    else
-        # Try using the built-in completion generator if available
-        source <(fzf --zsh 2>/dev/null) || true
-    fi
-    
-    # FZF theming with catppuccin-mocha
-    fzf_version=$(fzf --version | awk '{print $1}')
-    fzf_req_version="0.57.0"
-    if [ "$(printf '%s\n' "$fzf_req_version" "$fzf_version" | sort -V | head -n1)" = "$fzf_req_version" ]; then 
-        export FZF_DEFAULT_OPTS=" \
-        --color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
-        --color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
-        --color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 \
-        --color=selected-bg:#45475a \
-        --multi"
-    fi
-fi
+# if (( $+commands[fzf] )); then
+#     # Try different potential sources for fzf completion
+#     if [[ -f "$HOMEBREW_PREFIX/opt/fzf/shell/completion.zsh" ]]; then
+#         source "$HOMEBREW_PREFIX/opt/fzf/shell/completion.zsh"
+#         source "$HOMEBREW_PREFIX/opt/fzf/shell/key-bindings.zsh"
+#     elif [[ -f "/usr/share/doc/fzf/examples/completion.zsh" ]]; then
+#         source "/usr/share/doc/fzf/examples/completion.zsh"
+#         source "/usr/share/doc/fzf/examples/key-bindings.zsh"
+#     elif [[ -f "$ZDOTDIR/plugins/fzf/completion.zsh" ]]; then
+#         source "$ZDOTDIR/plugins/fzf/completion.zsh"
+#         source "$ZDOTDIR/plugins/fzf/key-bindings.zsh"
+#     else
+#         # Try using the built-in completion generator if available
+#         source <(fzf --zsh 2>/dev/null) || true
+#     fi
+#
+#     # FZF theming with catppuccin-mocha
+#     fzf_version=$(fzf --version | awk '{print $1}')
+#     fzf_req_version="0.57.0"
+#     if [ "$(printf '%s\n' "$fzf_req_version" "$fzf_version" | sort -V | head -n1)" = "$fzf_req_version" ]; then 
+#         export FZF_DEFAULT_OPTS=" \
+#         --color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
+#         --color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
+#         --color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 \
+#         --color=selected-bg:#45475a \
+#         --multi"
+#     fi
+# fi
 
 fzf_live_grep() {
   rg --files | fzf --preview="bat --color=always {}" | \
@@ -814,13 +991,16 @@ fi
 
 # Cross-platform aliases
 if (( $+commands[taskwarrior-tui] )); then alias tt="taskwarrior-tui"; fi
+if (( $+commands[nvim] )); then alias vim="nvim"; fi # Prefer nvim if available
 
 # Tmux aliases
 alias tmux_main="tmux new-session -ADs main"
 
-# File operation aliases
-alias zcp='zmv -C'
-alias zln='zmv -L'
+# File operation aliases (zmv provided by zsh)
+# alias zcp='zmv -C'
+# alias zln='zmv -L'
+alias zcp='noglob zmv -C' # Use noglob to prevent globbing before zmv runs
+alias zln='noglob zmv -L'
 
 # Provide a raw cd command that bypasses zoxide
 alias rawcd="_orig_cd"
@@ -840,65 +1020,180 @@ if [[ -n "$BAT_CMD" ]]; then
         fi
     }
 
+  # Define 'less' to use bat if available, otherwise system less
+   export LESS='-R' # Enable raw control chars for color in less
+   export PAGER="$BAT_CMD" # Use bat as the default pager
+
     function help() {
         "$@" --help 2>&1 | $BAT_CMD --plain --language=help
     }
 
     # Update FZF with bat preview
-    if (( $+commands[fzf] )); then
-        alias fzf="fzf --preview '$BAT_CMD --style=numbers --color=always {}' --preview-window '~3'"
-    fi
+    # if (( $+commands[fzf] )); then
+    #     alias fzf="fzf --preview '$BAT_CMD --style=numbers --color=always {}' --preview-window '~3'"
+    # fi
+    # Update FZF preview to use bat (can be set in FZF_DEFAULT_OPTS too)
+    # export FZF_DEFAULT_COMMAND='rg --files --hidden --follow --glob "!.git/*"' # Example: Use rg
+    # export FZF_CTRL_T_OPTS="--preview '$BAT_CMD --color=always --style=numbers --line-range=:500 {}'"
+    # export FZF_ALT_C_OPTS="--preview 'tree -C {} | head -200'"
 fi
 
 # ─────────────────────────────────────────────────────────────
 # Completion System Setup
 # ─────────────────────────────────────────────────────────────
-# Clean fpath 
-fpath=()
+#
+# Helper function to determine Zsh's main function directory
+_get_zsh_main_functions_dir() {
+    # Try Homebrew Zsh first if on macOS
+    if [[ "$OS_TYPE" == "macos" && -n "$HOMEBREW_PREFIX" ]]; then
+        local brew_zsh_func_dir="$HOMEBREW_PREFIX/share/zsh/functions"
+        if [[ -d "$brew_zsh_func_dir" ]]; then
+            echo "$brew_zsh_func_dir"
+            return 0
+        fi
+        # Fallback for older Homebrew Zsh versions with versioned dirs
+        local brew_zsh_ver_func_dir="$HOMEBREW_PREFIX/share/zsh/$ZSH_VERSION/functions"
+         if [[ -d "$brew_zsh_ver_func_dir" ]]; then
+            echo "$brew_zsh_ver_func_dir"
+            return 0
+        fi
+    fi
+
+    # Try common system locations
+    local sys_paths=(
+        "/usr/local/share/zsh/functions"
+        "/usr/local/share/zsh/$ZSH_VERSION/functions"
+        "/usr/share/zsh/functions"
+        "/usr/share/zsh/$ZSH_VERSION/functions"
+    )
+    for path_to_check in "${sys_paths[@]}"; do
+        if [[ -d "$path_to_check" ]]; then
+            echo "$path_to_check"
+            return 0
+        fi
+    done
+
+    echo "Error: Could not determine Zsh's main function directory." >&2
+    return 1
+}
+
+local zsh_main_funcs_dir
+zsh_main_funcs_dir=$(_get_zsh_main_functions_dir)
+
+
+fpath=() # Start with an empty fpath to control it precisely
+
+# PRIORITY 1: Zsh's own main function directory
+if [[ -n "$zsh_main_funcs_dir" && -d "$zsh_main_funcs_dir" ]]; then
+    fpath+=("$zsh_main_funcs_dir")
+    # Some Zsh installations place Completion functions in a subdirectory
+    if [[ -d "$zsh_main_funcs_dir/Completion" ]]; then
+        fpath+=("$zsh_main_funcs_dir/Completion")
+    fi
+else
+    echo "Warning: Zsh main function directory not found or not added to fpath. Completions may fail." >&2
+fi
+
+# Add ZDOTDIR specific paths (your custom functions/completions)
 _set_fpath_from_candidates \
-  "$ZSH_CONFIG_DIR/plugins/git" \
-  "$ZSH_CONFIG_DIR/plugins/docker" \
-  "$ZSH_CONFIG_DIR/plugins/history-substring-search" \
-  /usr/local/share/zsh/site-functions \
-  /opt/homebrew/share/zsh/site-functions \
-  /usr/local/Cellar/zsh/5.9/share/zsh/functions \
-  "$ZSH_COMPLETIONS_DIR" \
-  "$ZSH_FUNCTIONS_DIR"
+  "$ZDOTDIR/functions" \
+  "$ZDOTDIR/completions"
+
+# Add ZSH_CONFIG_DIR if it's different from ZDOTDIR and used for more functions/completions
+if [[ -n "$ZSH_CONFIG_DIR" && "$ZSH_CONFIG_DIR" != "$ZDOTDIR" ]]; then
+    _set_fpath_from_candidates \
+        "$ZSH_CONFIG_DIR/functions" \
+        "$ZSH_CONFIG_DIR/completions"
+fi
+
+# Add Homebrew site-functions (if not already covered by zsh_main_funcs_dir)
+if [[ "$OS_TYPE" == "macos" && -n "$HOMEBREW_PREFIX" && "$HOMEBREW_PREFIX/share/zsh/functions" != "$zsh_main_funcs_dir" ]]; then
+  _set_fpath_from_candidates "$HOMEBREW_PREFIX/share/zsh/site-functions"
+fi
+
+# Add standard system site-functions (if not already covered)
+_set_fpath_from_candidates \
+  "/usr/local/share/zsh/site-functions" \
+  "/usr/share/zsh/site-functions"
+
+# Zinit loaded plugins might also add to fpath if they have completions.
+
+# Ensure essential Zsh autoloaded functions are available
+# Explicitly autoload compinit, compaudit, and compdef.
+# promptinit is generally for prompt themes, but good to have.
+autoload -Uz compinit promptinit compaudit compdef
 
 # Completion system setup
-ZSH_COMPDUMP="$ZSH_CACHE_DIR/.zcompdump-${HOST}-${ZSH_VERSION}"
-autoload -Uz compinit
-zstyle ':completion:*' insecure yes
-compinit -C -d "$ZSH_COMPDUMP"
+local compdump_dir="${ZSH_COMPLETION_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/zsh}"
+mkdir -p "$compdump_dir" # Ensure cache directory exists
+ZSH_COMPDUMP="${compdump_dir}/.zcompdump-${HOST}-${ZSH_VERSION}"
 
-# Recompile if needed
-if [[ ! -s "$ZSH_COMPDUMP" || "$(compaudit | wc -l)" -gt 0 ]]; then
-  compinit -u -d "$ZSH_COMPDUMP"
+# For debugging fpath issues:
+# echo "Final fpath before compinit:" >&2
+# for _fp_entry in $fpath; do echo "  $_fp_entry" >&2; done
+
+# Initialize completion system
+compinit -i -C -d "$ZSH_COMPDUMP"
+
+# For debugging: Check if compaudit is available AFTER the first compinit
+# if type compaudit >/dev/null 2>&1; then
+#     echo "DEBUG: compaudit IS available after first compinit." >&2
+# else
+#     echo "DEBUG: compaudit IS NOT available after first compinit. Critical error." >&2
+# fi
+
+# Recompile if compaudit finds issues or dump file is invalid/missing
+# <<< MODIFIED LINE BELOW >>> Use 'compaudit' directly
+if [[ ! -s "$ZSH_COMPDUMP" ]] || compaudit | grep -q '.'; then
+  echo "Compdump invalid or compaudit found issues. Recompiling..." >&2
+  compinit -i -u -d "$ZSH_COMPDUMP"
 fi
 
 # Completion cache configuration
 zstyle ':completion:*' use-cache on
-zstyle ':completion:*' cache-path "$ZSH_COMPLETION_CACHE_DIR"
+zstyle ':completion:*' cache-path "$compdump_dir"
 
-# lazy loading of completion functions 
+# Completion Styling & Options (your existing settings)
+zstyle ':completion:*' menu select
+zstyle ':completion:*:*:*:*:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
+zstyle ':completion:*' list-suffixes true
+zstyle ':completion:*' auto-description 'specify: %d'
+if (( $+commands[dircolors] && -n "$LS_COLORS" )); then
+    zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+fi
+
+# Lazy loading of specific completion functions (your existing settings)
 for cmd in fastfetch opam pipx pnpm rage sqlfluff; do
-	for dir in /usr/local/share/zsh/site-functions /opt/homebrew/share/zsh/site-functions; do
-		compfile="$dir/_$cmd"
-		[[ -f "$compfile" ]] && _lazy_complete "$cmd" "$compfile" && break
-	done
-	[[ -f "$ZSH_CONFIG_DIR/plugins/$cmd/_$cmd" ]] && _lazy_complete "$cmd" "$ZSH_CONFIG_DIR/plugins/$cmd/_$cmd"
+  for dir in "$HOMEBREW_PREFIX/share/zsh/site-functions" /usr/local/share/zsh/site-functions /usr/share/zsh/site-functions; do
+    local compfile="$dir/_$cmd"
+    if [[ -f "$compfile" ]]; then
+      _lazy_complete "$cmd" "$compfile"
+      break
+    fi
+  done
 done
 
+# History Substring Search ZLE Setup (your existing settings, ensure it's after compinit)
+autoload -Uz history-substring-search-up history-substring-search-down
+zle -N history-substring-search-up
+zle -N history-substring-search-down
+# Keybindings are likely handled in your zsh-vi-mode zvm_after_init hook
+# Bind keys within your zsh-vi-mode's zvm_after_init function for consistency,
+# or uncomment specific global bindings if needed:
+# bindkey "${terminfo[kcuu1]}" history-substring-search-up # Up Arrow
+# bindkey "${terminfo[kcud1]}" history-substring-search-down # Down Arrow
 # ─────────────────────────────────────────────────────────────
 # FINAL SETUP
 # ─────────────────────────────────────────────────────────────
 # Load the plugins
-for file in "${OMZ_PLUGIN_FILES[@]}"; do
-  source "$file"
-done
+# for file in "${OMZ_PLUGIN_FILES[@]}"; do
+#   source "$file"
+# done
 
 # Load custom local configuration if it exists
-[[ -f $ZDOTDIR/zshrc.local ]] && source $ZDOTDIR/zshrc.local
+# [[ -f $ZDOTDIR/zshrc.local ]] && source $ZDOTDIR/zshrc.local
+_source_if_exists "$ZDOTDIR/zshrc.local"
 
 # For profiling, uncomment:
 # zprof
