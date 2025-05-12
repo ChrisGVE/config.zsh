@@ -295,6 +295,11 @@ if [[ -n "$HOMEBREW_PREFIX" ]]; then
   _append_to_env "$HOMEBREW_PREFIX/opt/avr-gcc@8/bin" ":" "PATH"
   _append_to_env "$HOMEBREW_PREFIX/opt/arm-none-eabi-gcc@8/lib" "-L" "LDFLAGS"
   _append_to_env "$HOMEBREW_PREFIX/opt/avr-gcc@8/lib" "-L" "LDFLAGS"
+
+  # LLVM config 
+  _append_to_env "$HOMEBREW_PREFIX/opt/llvm/bin" ":" "PATH"
+  _append_to_env "$HOMEBREW_PREFIX/opt/llvm/lib" "-L" "LDFLAGS"
+  _append_to_env "$HOMEBREW_PREFIX/opt/llvm/include" "-I" "CPPFLAGS"
   
   # MySQL configuration
   _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/bin" ":" "PATH"
@@ -302,6 +307,9 @@ if [[ -n "$HOMEBREW_PREFIX" ]]; then
   _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/lib" "-L" "LDFLAGS"
   _append_to_env "$HOMEBREW_PREFIX/opt/mysql@8.4/include" "-I" "CPPFLAGS"
   
+  # OpenMP
+  _append_to_env "$HOMEBREW_PREFIX/opt/libomp" ";" "CMAKE_PREFIX_PATH"
+
   # GNU tools
   _append_to_env "$HOMEBREW_PREFIX/opt/gnu-sed/libexec/gnubin" ":" "PATH"
 fi
