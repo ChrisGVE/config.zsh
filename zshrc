@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 
 # disable the use of compaudit 
-# ZSH_DISABLE_COMPFIX=true
+ZSH_DISABLE_COMPFIX=true
 # ZSH_RUN_COMPINIT=false
 
 # For profiling, uncomment:
@@ -725,6 +725,7 @@ zinit snippet OMZP::docker/docker.plugin.zsh #defer'1'
 # --- Core Functionality Plugins ---
 zinit light zsh-users/zsh-autosuggestions
 zinit light zsh-users/zsh-history-substring-search # Let this load relatively early
+zinit light zsh-users/zsh-completions
 zinit light zdharma-continuum/history-search-multi-word
 zinit light jeffreytse/zsh-vi-mode # Loads the plugin, will use hooks defined above
 
