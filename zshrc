@@ -652,18 +652,21 @@ function zvm_after_init() {
     # bindkey -M vicmd '^[[B' history-substring-search-down
     # bindkey -M viins '^[[A' history-substring-search-up
     # bindkey -M viins '^[[B' history-substring-search-down
-  # bindkey -M vicmd "${terminfo[kcuu1]:-^[[A]}" history-substring-search-up
-  # bindkey -M vicmd "${terminfo[kcud1]:-^[[B]}" history-substring-search-down
-  # bindkey -M viins "${terminfo[kcuu1]:-^[[A]}" history-substring-search-up
-  # bindkey -M viins "${terminfo[kcud1]:-^[[B]}" history-substring-search-down
   # bindkey -M vicmd "${terminfo[kcuu1]:-^[[A]}" up-line-or-beginning-search
   # bindkey -M vicmd "${terminfo[kcud1]:-^[[B]}" down-line-or-beginning-search
   # bindkey -M viins "${terminfo[kcuu1]:-^[[A]}" up-line-or-beginning-search
   # bindkey -M viins "${terminfo[kcud1]:-^[[B]}" down-line-or-beginning-search
-    bindkey -M vicmd '^[[A' up-line-or-beginning-search
-    bindkey -M vicmd '^[[B' down-line-or-beginning-search
-    bindkey -M viins '^[[A' up-line-or-beginning-search
-    bindkey -M viins '^[[B' down-line-or-beginning-search
+    if [[ "$OS_TYPE" == "macos" ]]; then
+      bindkey -M vicmd '^[[A' up-line-or-beginning-search
+      bindkey -M vicmd '^[[B' down-line-or-beginning-search
+      bindkey -M viins '^[[A' up-line-or-beginning-search
+      bindkey -M viins '^[[B' down-line-or-beginning-search
+    else
+      bindkey -M vicmd "${terminfo[kcuu1]:-^[[A]}" history-substring-search-up
+      bindkey -M vicmd "${terminfo[kcud1]:-^[[B]}" history-substring-search-down
+      bindkey -M viins "${terminfo[kcuu1]:-^[[A]}" history-substring-search-up
+      bindkey -M viins "${terminfo[kcud1]:-^[[B]}" history-substring-search-down
+    fi
     
     # Additional key bindings
     bindkey -M viins '^?' backward-delete-char
