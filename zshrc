@@ -37,7 +37,9 @@ case "$(uname -s)" in
         ;;
     Linux*)     
         # Check if homebrew is present and if it is run the shell integration
-        if [[ -d /home/linuxbrew/.linuxbrew/homebrew ]]; then
+        if [[ -d /home/linuxbrew/.linuxbrew/Homebrew ]]; then
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+        elif [[ -d /home/linuxbrew/.linuxbrew/homebrew ]]; then
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
         fi
         export OS_TYPE="linux"
