@@ -652,10 +652,18 @@ function zvm_after_init() {
     # bindkey -M vicmd '^[[B' history-substring-search-down
     # bindkey -M viins '^[[A' history-substring-search-up
     # bindkey -M viins '^[[B' history-substring-search-down
-  bindkey -M vicmd "${terminfo[kcuu1]:-^[[A]}" history-substring-search-up
-  bindkey -M vicmd "${terminfo[kcud1]:-^[[B]}" history-substring-search-down
-  bindkey -M viins "${terminfo[kcuu1]:-^[[A]}" history-substring-search-up
-  bindkey -M viins "${terminfo[kcud1]:-^[[B]}" history-substring-search-down
+  # bindkey -M vicmd "${terminfo[kcuu1]:-^[[A]}" history-substring-search-up
+  # bindkey -M vicmd "${terminfo[kcud1]:-^[[B]}" history-substring-search-down
+  # bindkey -M viins "${terminfo[kcuu1]:-^[[A]}" history-substring-search-up
+  # bindkey -M viins "${terminfo[kcud1]:-^[[B]}" history-substring-search-down
+  # bindkey -M vicmd "${terminfo[kcuu1]:-^[[A]}" up-line-or-beginning-search
+  # bindkey -M vicmd "${terminfo[kcud1]:-^[[B]}" down-line-or-beginning-search
+  # bindkey -M viins "${terminfo[kcuu1]:-^[[A]}" up-line-or-beginning-search
+  # bindkey -M viins "${terminfo[kcud1]:-^[[B]}" down-line-or-beginning-search
+    bindkey -M vicmd '^[[A' up-line-or-beginning-search
+    bindkey -M vicmd '^[[B' down-line-or-beginning-search
+    bindkey -M viins '^[[A' up-line-or-beginning-search
+    bindkey -M viins '^[[B' down-line-or-beginning-search
     
     # Additional key bindings
     bindkey -M viins '^?' backward-delete-char
@@ -1194,14 +1202,18 @@ for cmd in fastfetch opam pipx pnpm rage sqlfluff; do
 done
 
 # History Substring Search ZLE Setup (your existing settings, ensure it's after compinit)
-autoload -Uz history-substring-search-up history-substring-search-down
+autoload -Uz history-substring-search-up history-substring-search-down up-line-or-beginning-search down-line-or-beginning-search
 zle -N history-substring-search-up
 zle -N history-substring-search-down
+zle -N up-line-or-beginning-search
+zle -N down-line-or-beginning-search
 # Keybindings are likely handled in your zsh-vi-mode zvm_after_init hook
 # Bind keys within your zsh-vi-mode's zvm_after_init function for consistency,
 # or uncomment specific global bindings if needed:
 # bindkey "${terminfo[kcuu1]}" history-substring-search-up # Up Arrow
 # bindkey "${terminfo[kcud1]}" history-substring-search-down # Down Arrow
+# bindkey '^[[A' up-line-or-beginning-search
+# bindkey '^[[B' down-line-or-beginning-search
 # ─────────────────────────────────────────────────────────────
 # FINAL SETUP
 # ─────────────────────────────────────────────────────────────
