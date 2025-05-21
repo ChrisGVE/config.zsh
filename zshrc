@@ -1178,7 +1178,7 @@ zstyle ':completion:*:*:*:*:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
 zstyle ':completion:*' list-suffixes true
 zstyle ':completion:*' auto-description 'specify: %d'
-if (( $+commands[dircolors] && -n "$LS_COLORS" )); then
+if (( $+commands[dircolors] )) && [[ -n "$LS_COLORS" ]]; then
     zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 fi
 
