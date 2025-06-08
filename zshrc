@@ -841,6 +841,11 @@ export KEYTIMEOUT=1 # Make ESC transition faster (useful for Vi mode)
 
 
 # ─────────────────────────────────────────────────────────────
+# OP CONFIGURATION
+# ─────────────────────────────────────────────────────────────
+eval $(op signin)
+
+# ─────────────────────────────────────────────────────────────
 # LUAROCKS CONFIGURATION
 # ─────────────────────────────────────────────────────────────
 if type luarocks >/dev/null 2>&1; then
@@ -1024,6 +1029,7 @@ fi
 # Cross-platform aliases
 if (( $+commands[taskwarrior-tui] )); then alias tt="taskwarrior-tui"; fi
 if (( $+commands[nvim] )); then alias vim="nvim"; fi # Prefer nvim if available
+if (( $+commands[claude])); then alias claude="ANTHROPIC_API_KEY= /Users/chris/.claude/local/claude"
 
 # Tmux aliases
 alias tmux_main="tmux new-session -ADs main"
@@ -1233,3 +1239,4 @@ _source_if_exists "$ZDOTDIR/zshrc.local"
 
 # For profiling, uncomment:
 # zprof
+
