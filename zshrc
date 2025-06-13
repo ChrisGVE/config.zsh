@@ -404,6 +404,61 @@ conda() {
 }
 
 # ─────────────────────────────────────────────────────────────
+# MICROMAMBA SETUP (LAZY LOADING)
+# ─────────────────────────────────────────────────────────────
+micromamba() {
+    unfunction micromamba
+    
+    local mamba_path
+    case "$OS_TYPE" in
+        macos)
+            # Try several possible micromamba locations on macOS
+            if [[ -d "$HOMEBREW_PREFIX/opt/micromamba" ]]; then
+                mamba_path="$HOMEBREW_PREFIX/opt/micromamba"
+            elif [[ -d "$HOMEBREW_PREFIX/Caskroom/micromamba" ]]; then
+                mamba_path="$HOMEBREW_PREFIX/Caskroom/micromamba"
+            elif [[ -d "$HOME/micromamba" ]]; then
+                mamba_path="$HOME/micromamba"
+            elif [[ -d "$HOME/.micromamba" ]]; then
+                mamba_path="$HOME/.micromamba"
+            else
+                mamba_path="/opt/local/micromamba"
+            fi
+            ;;
+        raspberrypi|linux)
+            # Try several possible micromamba locations on Linux
+            if [[ -d "/opt/micromamba" ]]; then
+                mamba_path="/opt/micromamba"
+            elif [[ -d "/usr/local/micromamba" ]]; then
+                mamba_path="/usr/local/micromamba"
+            elif [[ -d "$HOME/micromamba" ]]; then
+                mamba_path="$HOME/micromamba"
+            elif [[ -d "$HOME/.micromamba" ]]; then
+                mamba_path="$HOME/.micromamba"
+            elif [[ -d "/opt/local/share/dev/toolchains/micromamba" ]]; then
+                mamba_path="/opt/local/share/dev/toolchains/micromamba"
+            else
+                mamba_path="/opt/local/micromamba"
+            fi
+            ;;
+    esac
+    
+    if [[ -d "$mamba_path" ]]; then
+        # Initialize micromamba shell
+        eval "$("$mamba_path/bin/micromamba" shell hook -s zsh)"
+        
+        # Add micromamba bin to PATH if not already present
+        if [[ ":$PATH:" != *":$mamba_path/bin:"* ]]; then
+            export PATH="$mamba_path/bin:$PATH"
+        fi
+        
+        micromamba "$@"
+    else
+        echo "micromamba not found in expected location: $mamba_path"
+    fi
+}
+
+# ─────────────────────────────────────────────────────────────
 # Bootstrap Zinit Plugin Manager
 # ─────────────────────────────────────────────────────────────
 if [[ ! -d "$ZINIT_HOME" ]]; then
@@ -1029,7 +1084,7 @@ fi
 # Cross-platform aliases
 if (( $+commands[taskwarrior-tui] )); then alias tt="taskwarrior-tui"; fi
 if (( $+commands[nvim] )); then alias vim="nvim"; fi # Prefer nvim if available
-if (( $+commands[claude])); then alias claude="ANTHROPIC_API_KEY= /Users/chris/.claude/local/claude"
+alias claude="ANTHROPIC_API_KEY= /Users/chris/.claude/local/claude"
 
 # Tmux aliases
 alias tmux_main="tmux new-session -ADs main"
@@ -1239,4 +1294,3 @@ _source_if_exists "$ZDOTDIR/zshrc.local"
 
 # For profiling, uncomment:
 # zprof
-
