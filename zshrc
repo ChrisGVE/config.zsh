@@ -272,6 +272,9 @@ _append_to_env "/usr/local/bin" ":" "PATH"
 _append_to_env "/usr/local/opt/file-formula/bin" ":" "PATH"
 _append_to_env "/usr/local/sbin" ":" "PATH"
 
+# Rust paths
+_append_to_env "$HOME/.cargo/bin" ":" "PATH"
+
 # Homebrew configuration
 if [[ -n "$HOMEBREW_PREFIX" ]]; then
   # macOS with Homebrew
@@ -894,12 +897,6 @@ export KEYTIMEOUT=1 # Make ESC transition faster (useful for Vi mode)
 
 # <<< CHANGE >>> Removed manual fast-syntax-highlighting source block
 
-
-# ─────────────────────────────────────────────────────────────
-# OP CONFIGURATION
-# ─────────────────────────────────────────────────────────────
-eval $(op signin)
-
 # ─────────────────────────────────────────────────────────────
 # LUAROCKS CONFIGURATION
 # ─────────────────────────────────────────────────────────────
@@ -918,6 +915,11 @@ if type luarocks >/dev/null 2>&1; then
   # Add LuaRocks bin to PATH only if its not already there
   [[ ":$PATH:" != *":$HOME/.luarocks/bin:"* ]] && export PATH="$HOME/.luarocks/bin:$PATH"
 fi
+
+# ─────────────────────────────────────────────────────────────
+# GO CONFIGURATION
+# ─────────────────────────────────────────────────────────────
+export GOPATH=$XDG_DATA_HOME/go
 
 # ─────────────────────────────────────────────────────────────
 # PERL CONFIGURATION
