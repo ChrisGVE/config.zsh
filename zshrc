@@ -409,8 +409,8 @@ conda() {
 # ─────────────────────────────────────────────────────────────
 # MICROMAMBA SETUP (LAZY LOADING)
 # ─────────────────────────────────────────────────────────────
-micromamba() {
-    unfunction micromamba
+mamba() {
+    unfunction mamba
     
     local mamba_path
     case "$OS_TYPE" in
@@ -427,6 +427,7 @@ micromamba() {
             else
                 mamba_path="/opt/local/micromamba"
             fi
+            export CONDA_OVERRIDE_OSX=10.15
             ;;
         raspberrypi|linux)
             # Try several possible micromamba locations on Linux
@@ -448,18 +449,19 @@ micromamba() {
     
     if [[ -d "$mamba_path" ]]; then
         # Initialize micromamba shell
-        eval "$("$mamba_path/bin/micromamba" shell hook -s zsh)"
+        eval "$("$mamba_path/bin/mamba" shell hook -s zsh)"
         
         # Add micromamba bin to PATH if not already present
         if [[ ":$PATH:" != *":$mamba_path/bin:"* ]]; then
             export PATH="$mamba_path/bin:$PATH"
         fi
         
-        micromamba "$@"
+        mamba "$@"
     else
         echo "micromamba not found in expected location: $mamba_path"
     fi
 }
+
 
 # ─────────────────────────────────────────────────────────────
 # Bootstrap Zinit Plugin Manager
@@ -1052,11 +1054,11 @@ if [[ "$OS_TYPE" == "macos" ]]; then
     alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
 
     # QMK aliases
-    alias qmk_dztech="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_dztech"
-    alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_keychron"
-    alias qmk_neo="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_neo"
-    alias qmk_og="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_firmware"
-    alias qmk_ydkb="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_ydkb"
+    alias qmk_dztech="qmk config set user.qmk_home=$HOME/Dropbox/dev/keyboard/qmk/qmk_dztech"
+    alias qmk_keychron="qmk config set user.qmk_home=$HOME/Dropbox/dev/keyboard/qmk/qmk_keychron"
+    alias qmk_neo="qmk config set user.qmk_home=$HOME/Dropbox/dev/keyboard/qmk/qmk_neo"
+    alias qmk_og="qmk config set user.qmk_home=$HOME/Dropbox/dev/keyboard/qmk/qmk_firmware"
+    alias qmk_ydkb="qmk config set user.qmk_home=$HOME/Dropbox/dev/keyboard/qmk/qmk_ydkb"
 
     # Nvim testing aliases
     alias nvim-telescope='NVIM_APPNAME=nvim-telescope nvim'
