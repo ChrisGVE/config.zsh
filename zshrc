@@ -342,6 +342,12 @@ if [[ "$OS_TYPE" == "macos" ]]; then
 
   # MacTex
   eval "$(/usr/libexec/path_helper)"
+
+  # jpeg
+  _append_to_env "/usr/local/opt/jpeg/bin" ":" "PATH"
+  _append_to_env "/usr/local/opt/jpeg/lib" "-L" "LDFLAGS"
+  _append_to_env "/usr/local/opt/jpeg/include" "-I" "CPPFLAGS"
+  _append_to_env "/usr/local/opt/jpeg/lib/pkgconfig/" ":" "PKG_CONFIG_PATH"
 else
   # Linux-specific paths
   _append_to_env "/usr/lib/dart/bin" ":" "PATH"
@@ -1298,3 +1304,10 @@ _source_if_exists "$ZDOTDIR/zshrc.local"
 
 # For profiling, uncomment:
 # zprof
+
+# bun completions
+[ -s "/Users/chris/.bun/_bun" ] && source "/Users/chris/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
