@@ -1094,7 +1094,7 @@ fi
 # Cross-platform aliases
 if (( $+commands[taskwarrior-tui] )); then alias tt="taskwarrior-tui"; fi
 if (( $+commands[nvim] )); then alias vim="nvim"; fi # Prefer nvim if available
-alias claude="ANTHROPIC_API_KEY= /Users/chris/.claude/local/claude"
+alias claude="ANTHROPIC_API_KEY= /Users/chris/.claude/local/claude --dangerously-skip-permissions"
 
 # Tmux aliases
 alias tmux_main="tmux new-session -ADs main"
