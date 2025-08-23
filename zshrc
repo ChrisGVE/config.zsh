@@ -540,54 +540,19 @@ alias fgrep='fgrep --color=auto'
 # ─────────────────────────────────────────────────────────────
 # Safely implement zoxide functionality with backwards compatibility
 if (( $+commands[zoxide] )); then
-    # Save the original cd function
-    if ! function_exists _orig_cd; then
-        function _orig_cd() {
-            builtin cd "$@"
-        }
-    fi
-    
-    # First check if the installed zoxide version supports --no-cmd
-    if zoxide init zsh --help 2>&1 | grep -q -- "--no-cmd"; then
-        # Newer version - initialize zoxide without overriding cd
-        eval "$(zoxide init zsh --hook pwd --no-cmd)"
-    else
-        # Older version - initialize zoxide normally and then override its cd function
-        eval "$(zoxide init zsh --hook pwd)"
-        # Immediately redefine the cd function to our version
-    fi
-    
-    # Create our own implementation of cd that uses zoxide
-    function cd() {
-        if [[ "$#" -eq 0 ]]; then
-            # cd with no args goes to $HOME
-            _orig_cd "$HOME"
-        elif [[ "$#" -eq 1 && "$1" != "-"* && ! -d "$1" ]]; then
-            # For directories that don't exist locally, try zoxide
-            # Use __zoxide_z directly if it exists, otherwise the z command
-            if function_exists __zoxide_z; then
-                __zoxide_z "$1"
-            else
-                # Fall back to external z command if function doesn't exist
-                command z "$1"
-            fi
-        else
-            # Use builtin cd for all other cases
-            _orig_cd "$@"
-        fi
-    }
-    
-    # Provide zi as shortcut for zoxide interactive
-    function zi() {
-        local result
-        result=$(zoxide query -i -- "$@")
-        if [[ -n "$result" ]]; then
-            _orig_cd "$result"
-        fi
-    }
-    
-    # Provide a raw cd command that bypasses zoxide
-    alias rawcd="_orig_cd"
+    eval "$(zoxide init zsh --hook pwd --cmd z)"
+
+    # Custom aliases
+    alias zi="z -i"       # interactive mode
+    alias zz="z -"        # previous directory
+    alias zb="z .."       # parent directory
+    alias zc="z -c"       # children only
+    alias zh="z ~"        # home directory
+
+    # Quick jumps to common directories
+    alias zdev="z ~/dev"
+    alias zdown="z ~/Downloads"
+    alias zdocs="z ~/Documents"
 fi
 
 # ─────────────────────────────────────────────────────────────
@@ -1105,9 +1070,6 @@ alias tmux_main="tmux new-session -ADs main"
 alias zcp='noglob zmv -C' # Use noglob to prevent globbing before zmv runs
 alias zln='noglob zmv -L'
 
-# Provide a raw cd command that bypasses zoxide
-alias rawcd="_orig_cd"
-
 # Bat configuration
 if [[ -n "$BAT_CMD" ]]; then
     alias cat="$BAT_CMD --style=numbers --color=always"
@@ -1311,3 +1273,7 @@ _source_if_exists "$ZDOTDIR/zshrc.local"
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
+
+# Task Master aliases added on 8/15/2025
+alias tm='task-master'
+alias taskmaster='task-master'
