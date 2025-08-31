@@ -536,26 +536,6 @@ alias egrep='egrep --color=auto'
 alias fgrep='fgrep --color=auto'
 
 # ─────────────────────────────────────────────────────────────
-# ZOXIDE CONFIGURATION 
-# ─────────────────────────────────────────────────────────────
-# Safely implement zoxide functionality with backwards compatibility
-if (( $+commands[zoxide] )); then
-    eval "$(zoxide init zsh --hook pwd --cmd z)"
-
-    # Custom aliases
-    alias zi="z -i"       # interactive mode
-    alias zz="z -"        # previous directory
-    alias zb="z .."       # parent directory
-    alias zc="z -c"       # children only
-    alias zh="z ~"        # home directory
-
-    # Quick jumps to common directories
-    alias zdev="z ~/dev"
-    alias zdown="z ~/Downloads"
-    alias zdocs="z ~/Documents"
-fi
-
-# ─────────────────────────────────────────────────────────────
 # HISTORY CONFIGURATION
 # ─────────────────────────────────────────────────────────────
 # autoload -Uz history-substring-search-up history-substring-search-down
@@ -1059,7 +1039,7 @@ fi
 # Cross-platform aliases
 if (( $+commands[taskwarrior-tui] )); then alias tt="taskwarrior-tui"; fi
 if (( $+commands[nvim] )); then alias vim="nvim"; fi # Prefer nvim if available
-alias claude="ANTHROPIC_API_KEY= /Users/chris/.claude/local/claude --dangerously-skip-permissions"
+alias cld="ANTHROPIC_API_KEY= claude --dangerously-skip-permissions"
 
 # Tmux aliases
 alias tmux_main="tmux new-session -ADs main"
@@ -1277,3 +1257,26 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 # Task Master aliases added on 8/15/2025
 alias tm='task-master'
 alias taskmaster='task-master'
+
+# ─────────────────────────────────────────────────────────────
+# ZOXIDE CONFIGURATION 
+# ─────────────────────────────────────────────────────────────
+# Safely implement zoxide functionality with backwards compatibility
+if (( $+commands[zoxide] )); then
+    # eval "$(zoxide init zsh --hook pwd --cmd z)"
+
+    eval "$(zoxide init zsh --hook pwd)"
+
+    # Custom aliases
+    #alias zi="z -i"       # interactive mode
+    alias zz="z -"        # previous directory
+    alias zb="z .."       # parent directory
+    alias zc="z -c"       # children only
+    alias zh="z ~"        # home directory
+
+    # Quick jumps to common directories
+    alias zdev="z ~/dev"
+    alias zdown="z ~/Downloads"
+    alias zdocs="z ~/Documents"
+fi
+

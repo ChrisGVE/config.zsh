@@ -42,7 +42,7 @@ mkdir -p "$ZSH_CACHE_DIR" "$ZSH_COMPLETION_CACHE_DIR" "$ZSH_COMPLETIONS_DIR" "$Z
 # zoxide
 export _ZO_DATA_DIR="$XDG_DATA_HOME"
 export _ZO_ECHO=0
-export _ZO_EXCLUDE_DIRS=$XDG_DATA_HOME:$XDG_CACHE_HOME:$XDG_STATE_HOME
+# export _ZO_EXCLUDE_DIRS=$XDG_DATA_HOME:$XDG_CACHE_HOME:$XDG_STATE_HOME
 export _ZO_RESOLVE_SYMLINKS=0
 
 # Include private environment variables if they exist
