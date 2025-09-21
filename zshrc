@@ -325,6 +325,9 @@ if [[ -n "$HOMEBREW_PREFIX" ]]; then
   # OpenMP
   _append_to_env "$HOMEBREW_PREFIX/opt/libomp" ";" "CMAKE_PREFIX_PATH"
 
+  # Rust
+  _append_to_env "$HOMEBREW_PREFIX/opt/rustup/bin" ":" "PATH"
+
   # GNU tools
   _append_to_env "$HOMEBREW_PREFIX/opt/gnu-sed/libexec/gnubin" ":" "PATH"
 fi
@@ -870,6 +873,11 @@ if type luarocks >/dev/null 2>&1; then
 fi
 
 # ─────────────────────────────────────────────────────────────
+# OLLAMA CONFIGURATION
+# ─────────────────────────────────────────────────────────────
+export OLLAMA_API_BASE=http://localhost:11434
+
+# ─────────────────────────────────────────────────────────────
 # GO CONFIGURATION
 # ─────────────────────────────────────────────────────────────
 export GOPATH=$XDG_DATA_HOME/go
@@ -1039,7 +1047,7 @@ fi
 # Cross-platform aliases
 if (( $+commands[taskwarrior-tui] )); then alias tt="taskwarrior-tui"; fi
 if (( $+commands[nvim] )); then alias vim="nvim"; fi # Prefer nvim if available
-alias cld="ANTHROPIC_API_KEY= claude --dangerously-skip-permissions"
+alias claude="ANTHROPIC_API_KEY= $HOME/.claude/local/claude --dangerously-skip-permissions"
 
 # Tmux aliases
 alias tmux_main="tmux new-session -ADs main"
@@ -1280,3 +1288,6 @@ if (( $+commands[zoxide] )); then
     alias zdocs="z ~/Documents"
 fi
 
+
+fpath+=~/.zfunc; autoload -Uz compinit; compinit
+export PATH="$HOME/.local/bin:$PATH"
