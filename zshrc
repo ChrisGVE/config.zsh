@@ -327,6 +327,8 @@ if [[ -n "$HOMEBREW_PREFIX" ]]; then
 
   # Rust
   _append_to_env "$HOMEBREW_PREFIX/opt/rustup/bin" ":" "PATH"
+  _append_to_env "$HOME/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/x86_64-apple-darwin/bin/llvm-cov" ":" "LLVM_COV" 
+  _append_to_env "$HOME/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/x86_64-apple-darwin/bin/llvm-profdata" ":" "LLVM_PROFDATA"
 
   # GNU tools
   _append_to_env "$HOMEBREW_PREFIX/opt/gnu-sed/libexec/gnubin" ":" "PATH"
@@ -748,6 +750,11 @@ zinit snippet OMZP::common-aliases/common-aliases.plugin.zsh #defer'1'
 zinit snippet OMZP::aliases/aliases.plugin.zsh #defer'1'
 zinit snippet OMZP::git/git.plugin.zsh #defer'1'
 zinit snippet OMZP::docker/docker.plugin.zsh #defer'1'
+
+# Resetting aliases for cp, mv, and rm
+unalias cp
+unalias mv
+unalias rm
 
 # --- Core Functionality Plugins ---
 zinit light zsh-users/zsh-autosuggestions
