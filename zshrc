@@ -277,6 +277,9 @@ _append_to_env "$HOME/.cargo/bin" ":" "PATH"
 
 # Homebrew configuration
 if [[ -n "$HOMEBREW_PREFIX" ]]; then
+  # GNU COREUTILS take precedence
+  export PATH="$(brew --prefix coreutils)/libexec/gnubin:$PATH"
+
   # macOS with Homebrew
   _append_to_env "$HOMEBREW_PREFIX/opt/openjdk/bin" ":" "PATH"
   _append_to_env "$HOMEBREW_PREFIX/opt/dart@2.18/bin" ":" "PATH"
@@ -977,6 +980,29 @@ if (( $+commands[batman] )); then
     fi
 fi
 
+# Bat configuration
+if [[ -n "$BAT_CMD" ]]; then
+    alias cat="$BAT_CMD --style=numbers --color=always"
+    alias bathelp="$BAT_CMD --plain --language=help"
+
+  # Define 'less' to use bat if available, otherwise system less
+   export LESS='-R' # Enable raw control chars for color in less
+   export PAGER="$BAT_CMD" # Use bat as the default pager
+
+    function help() {
+        "$@" --help 2>&1 | $BAT_CMD --plain --language=help
+    }
+
+    # Update FZF with bat preview
+    # if (( $+commands[fzf] )); then
+    #     alias fzf="fzf --preview '$BAT_CMD --style=numbers --color=always {}' --preview-window '~3'"
+    # fi
+    # Update FZF preview to use bat (can be set in FZF_DEFAULT_OPTS too)
+    # export FZF_DEFAULT_COMMAND='rg --files --hidden --follow --glob "!.git/*"' # Example: Use rg
+    # export FZF_CTRL_T_OPTS="--preview '$BAT_CMD --color=always --style=numbers --line-range=:500 {}'"
+    # export FZF_ALT_C_OPTS="--preview 'tree -C {} | head -200'"
+fi
+
 # ─────────────────────────────────────────────────────────────
 # SSH CONFIGURATION
 # ─────────────────────────────────────────────────────────────
@@ -1064,39 +1090,6 @@ alias tmux_main="tmux new-session -ADs main"
 # alias zln='zmv -L'
 alias zcp='noglob zmv -C' # Use noglob to prevent globbing before zmv runs
 alias zln='noglob zmv -L'
-
-# Bat configuration
-if [[ -n "$BAT_CMD" ]]; then
-    alias cat="$BAT_CMD --style=numbers --color=always"
-    alias bathelp="$BAT_CMD --plain --language=help"
-
-    # Update your tail function
-    TAIL_BIN=$(which tail)
-    function tail() {
-        if [[ -n $1 && $1 == "-f" ]]; then
-            $TAIL_BIN $* | $BAT_CMD --paging=never -l log 
-        else
-            $TAIL_BIN $*
-        fi
-    }
-
-  # Define 'less' to use bat if available, otherwise system less
-   export LESS='-R' # Enable raw control chars for color in less
-   export PAGER="$BAT_CMD" # Use bat as the default pager
-
-    function help() {
-        "$@" --help 2>&1 | $BAT_CMD --plain --language=help
-    }
-
-    # Update FZF with bat preview
-    # if (( $+commands[fzf] )); then
-    #     alias fzf="fzf --preview '$BAT_CMD --style=numbers --color=always {}' --preview-window '~3'"
-    # fi
-    # Update FZF preview to use bat (can be set in FZF_DEFAULT_OPTS too)
-    # export FZF_DEFAULT_COMMAND='rg --files --hidden --follow --glob "!.git/*"' # Example: Use rg
-    # export FZF_CTRL_T_OPTS="--preview '$BAT_CMD --color=always --style=numbers --line-range=:500 {}'"
-    # export FZF_ALT_C_OPTS="--preview 'tree -C {} | head -200'"
-fi
 
 # ─────────────────────────────────────────────────────────────
 # Completion System Setup
