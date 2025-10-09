@@ -1081,6 +1081,7 @@ fi
 if (( $+commands[taskwarrior-tui] )); then alias tt="taskwarrior-tui"; fi
 if (( $+commands[nvim] )); then alias vim="nvim"; fi # Prefer nvim if available
 alias claude="ANTHROPIC_API_KEY= $HOME/.claude/local/claude --dangerously-skip-permissions"
+alias codex="codex --dangerously-bypass-approvals-and-sandbox"
 
 # Tmux aliases
 alias tmux_main="tmux new-session -ADs main"
