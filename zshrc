@@ -752,7 +752,7 @@ function zvm_after_init() {
 zinit snippet OMZP::common-aliases/common-aliases.plugin.zsh #defer'1'
 zinit snippet OMZP::aliases/aliases.plugin.zsh #defer'1'
 zinit snippet OMZP::git/git.plugin.zsh #defer'1'
-zinit snippet OMZP::docker/docker.plugin.zsh #defer'1'
+# zinit snippet OMZP::docker/docker.plugin.zsh #defer'1'
 
 # Resetting aliases for cp, mv, and rm
 unalias cp
@@ -1080,8 +1080,9 @@ fi
 # Cross-platform aliases
 if (( $+commands[taskwarrior-tui] )); then alias tt="taskwarrior-tui"; fi
 if (( $+commands[nvim] )); then alias vim="nvim"; fi # Prefer nvim if available
-alias claude="ANTHROPIC_API_KEY= $HOME/.claude/local/claude --dangerously-skip-permissions"
-alias codex="codex --dangerously-bypass-approvals-and-sandbox"
+alias claude="~/.claude/local/claude"
+alias claude-start="ANTHROPIC_API_KEY= $HOME/.claude/local/claude --dangerously-skip-permissions"
+alias codex-start="codex --dangerously-bypass-approvals-and-sandbox"
 
 # Tmux aliases
 alias tmux_main="tmux new-session -ADs main"
