@@ -329,12 +329,15 @@ if [[ -n "$HOMEBREW_PREFIX" ]]; then
   _append_to_env "$HOMEBREW_PREFIX/opt/libomp" ";" "CMAKE_PREFIX_PATH"
 
   # Rust
-  _append_to_env "$HOMEBREW_PREFIX/opt/rustup/bin" ":" "PATH"
+  _prefix_to_env "$HOME/.cargo/bin" ":" "PATH"
+  _prefix_to_env "$HOMEBREW_PREFIX/opt/rustup/bin" ":" "PATH"
   _append_to_env "$HOME/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/x86_64-apple-darwin/bin/llvm-cov" ":" "LLVM_COV" 
   _append_to_env "$HOME/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/x86_64-apple-darwin/bin/llvm-profdata" ":" "LLVM_PROFDATA"
 
   # GNU tools
   _append_to_env "$HOMEBREW_PREFIX/opt/gnu-sed/libexec/gnubin" ":" "PATH"
+
+  _append_to_env "$HOMEBREW_PREFIX/bin" ":" "PATH"
 fi
 
 # Platform-specific paths
@@ -758,6 +761,7 @@ zinit snippet OMZP::git/git.plugin.zsh #defer'1'
 unalias cp
 unalias mv
 unalias rm
+unalias gk
 
 # --- Core Functionality Plugins ---
 zinit light zsh-users/zsh-autosuggestions
@@ -888,9 +892,17 @@ fi
 export OLLAMA_API_BASE=http://localhost:11434
 
 # ─────────────────────────────────────────────────────────────
+# PYTHON CONFIGURATION
+# ─────────────────────────────────────────────────────────────
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init - zsh)"
+
+# ─────────────────────────────────────────────────────────────
 # GO CONFIGURATION
 # ─────────────────────────────────────────────────────────────
 export GOPATH=$XDG_DATA_HOME/go
+_prefix_to_env "$XDG_DATA_HOME/go/bin" ":" "PATH"
 
 # ─────────────────────────────────────────────────────────────
 # PERL CONFIGURATION
@@ -929,79 +941,79 @@ eval "$(perl -I$XDG_DATA_HOME/perl5/lib/perl5 -Mlocal::lib=$XDG_DATA_HOME/perl5)
 #     fi
 # fi
 
-fzf_live_grep() {
-  rg --files | fzf --preview="bat --color=always {}" | \
-    xargs -I{} rg --color=always --line-number --no-heading --smart-case "" {} | \
-    fzf --ansi \
-        --preview="echo {} | cut -d':' -f1 | xargs bat --color=always --line-range $(echo {} | cut -d':' -f2):"
-}
-
-fzf_content_search() {
-  local query="$1"
-  rg --color=always --line-number --no-heading --smart-case "$query" | \
-    fzf --ansi \
-        --query="$query" \
-        --preview="echo {} | cut -d':' -f1 | xargs bat --color=always --line-range $(echo {} | cut -d':' -f2):" \
-        --preview-window=right:60%
-}
-
-live_search() {
-  sk --ansi -i -c 'rg --color=always --line-number "{}"' \
-     --preview 'file=$(echo {1} | cut -d":" -f1); line=$(echo {1} | cut -d":" -f2); bat --color=always --line-range "$line": "$file"'
-}
+# fzf_live_grep() {
+#   rg --files | fzf --preview="bat --color=always {}" | \
+#     xargs -I{} rg --color=always --line-number --no-heading --smart-case "" {} | \
+#     fzf --ansi \
+#         --preview="echo {} | cut -d':' -f1 | xargs bat --color=always --line-range $(echo {} | cut -d':' -f2):"
+# }
+#
+# fzf_content_search() {
+#   local query="$1"
+#   rg --color=always --line-number --no-heading --smart-case "$query" | \
+#     fzf --ansi \
+#         --query="$query" \
+#         --preview="echo {} | cut -d':' -f1 | xargs bat --color=always --line-range $(echo {} | cut -d':' -f2):" \
+#         --preview-window=right:60%
+# }
+#
+# live_search() {
+#   sk --ansi -i -c 'rg --color=always --line-number "{}"' \
+#      --preview 'file=$(echo {1} | cut -d":" -f1); line=$(echo {1} | cut -d":" -f2); bat --color=always --line-range "$line": "$file"'
+# }
 
 # ─────────────────────────────────────────────────────────────
 # BAT CONFIGURATION
 # ─────────────────────────────────────────────────────────────
 # Detect and set up bat/batcat
-if (( $+commands[bat] )); then
-    export BAT_CMD="bat"
-  elif (( $+commands[batcat] )); then
-    export BAT_CMD="batcat"
-    # Optional: create bat alias if you want to always use 'bat' command
-    alias bat="batcat"
-fi
-
-# Setup bat theme
-if (( $+commands[fast-theme] )); then
-    if [[ -d "$XDG_DATA_HOME/zsh-fast-syntax-highlighting/themes" ]]; then
-        fast-theme XDG:catppuccin-mocha > /dev/null 2>&1
-    fi
-fi
-
-# Setup batman (only if it exists and supports --export-env)
-if (( $+commands[batman] )); then
-    # Check if batman supports --export-env by testing with --help
-    if batman --help 2>&1 | grep -q -- "--export-env"; then
-        eval "$(batman --export-env)"
-    else
-        # In case it doesn't support the flag, create a simple alias
-        alias batman="man"
-    fi
-fi
-
-# Bat configuration
-if [[ -n "$BAT_CMD" ]]; then
-    alias cat="$BAT_CMD --style=numbers --color=always"
-    alias bathelp="$BAT_CMD --plain --language=help"
-
-  # Define 'less' to use bat if available, otherwise system less
-   export LESS='-R' # Enable raw control chars for color in less
-   export PAGER="$BAT_CMD" # Use bat as the default pager
-
-    function help() {
-        "$@" --help 2>&1 | $BAT_CMD --plain --language=help
-    }
-
-    # Update FZF with bat preview
-    # if (( $+commands[fzf] )); then
-    #     alias fzf="fzf --preview '$BAT_CMD --style=numbers --color=always {}' --preview-window '~3'"
-    # fi
-    # Update FZF preview to use bat (can be set in FZF_DEFAULT_OPTS too)
-    # export FZF_DEFAULT_COMMAND='rg --files --hidden --follow --glob "!.git/*"' # Example: Use rg
-    # export FZF_CTRL_T_OPTS="--preview '$BAT_CMD --color=always --style=numbers --line-range=:500 {}'"
-    # export FZF_ALT_C_OPTS="--preview 'tree -C {} | head -200'"
-fi
+# if (( $+commands[bat] )); then
+#     export BAT_CMD="bat"
+#   elif (( $+commands[batcat] )); then
+#     export BAT_CMD="batcat"
+#     # Optional: create bat alias if you want to always use 'bat' command
+#     alias bat="batcat"
+# fi
+#
+# # Setup bat theme
+# if (( $+commands[fast-theme] )); then
+#     if [[ -d "$XDG_DATA_HOME/zsh-fast-syntax-highlighting/themes" ]]; then
+#         fast-theme XDG:catppuccin-mocha > /dev/null 2>&1
+#     fi
+# fi
+#
+# # Setup batman (only if it exists and supports --export-env)
+# if (( $+commands[batman] )); then
+#     # Check if batman supports --export-env by testing with --help
+#     if batman --help 2>&1 | grep -q -- "--export-env"; then
+#         eval "$(batman --export-env)"
+#     else
+#         # In case it doesn't support the flag, create a simple alias
+#         alias batman="man"
+#     fi
+# fi
+#
+# # Bat configuration
+# if [[ -n "$BAT_CMD" ]]; then
+#     alias cat="$BAT_CMD --style=numbers --color=always"
+#     alias bathelp="$BAT_CMD --plain --language=help"
+#
+#   # Define 'less' to use bat if available, otherwise system less
+#    export LESS='-R' # Enable raw control chars for color in less
+#    export PAGER="$BAT_CMD" # Use bat as the default pager
+#
+#     function help() {
+#         "$@" --help 2>&1 | $BAT_CMD --plain --language=help
+#     }
+#
+#     # Update FZF with bat preview
+#     # if (( $+commands[fzf] )); then
+#     #     alias fzf="fzf --preview '$BAT_CMD --style=numbers --color=always {}' --preview-window '~3'"
+#     # fi
+#     # Update FZF preview to use bat (can be set in FZF_DEFAULT_OPTS too)
+#     # export FZF_DEFAULT_COMMAND='rg --files --hidden --follow --glob "!.git/*"' # Example: Use rg
+#     # export FZF_CTRL_T_OPTS="--preview '$BAT_CMD --color=always --style=numbers --line-range=:500 {}'"
+#     # export FZF_ALT_C_OPTS="--preview 'tree -C {} | head -200'"
+# fi
 
 # ─────────────────────────────────────────────────────────────
 # SSH CONFIGURATION
@@ -1046,11 +1058,11 @@ if [[ "$OS_TYPE" == "macos" ]]; then
     alias nvimconfig="nvim $XDG_CONFIG_HOME/nvim/lua/config/*.lua $XDG_CONFIG_HOME/nvim/lua/plugins/*.lua"
 
     # QMK aliases
-    alias qmk_dztech="qmk config set user.qmk_home=$HOME/Dropbox/dev/keyboard/qmk/qmk_dztech"
-    alias qmk_keychron="qmk config set user.qmk_home=$HOME/Dropbox/dev/keyboard/qmk/qmk_keychron"
-    alias qmk_neo="qmk config set user.qmk_home=$HOME/Dropbox/dev/keyboard/qmk/qmk_neo"
-    alias qmk_og="qmk config set user.qmk_home=$HOME/Dropbox/dev/keyboard/qmk/qmk_firmware"
-    alias qmk_ydkb="qmk config set user.qmk_home=$HOME/Dropbox/dev/keyboard/qmk/qmk_ydkb"
+    alias qmk_dztech="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_dztech"
+    alias qmk_keychron="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_keychron"
+    alias qmk_neo="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_neo"
+    alias qmk_og="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_firmware"
+    alias qmk_ydkb="qmk config set user.qmk_home=$HOME/dev/keyboard/qmk/qmk_ydkb"
 
     # Nvim testing aliases
     alias nvim-telescope='NVIM_APPNAME=nvim-telescope nvim'
@@ -1080,8 +1092,10 @@ fi
 # Cross-platform aliases
 if (( $+commands[taskwarrior-tui] )); then alias tt="taskwarrior-tui"; fi
 if (( $+commands[nvim] )); then alias vim="nvim"; fi # Prefer nvim if available
-alias claude="~/.claude/local/claude"
-alias claude-start="ANTHROPIC_API_KEY= $HOME/.claude/local/claude --dangerously-skip-permissions"
+alias claude="$HOME/.local/bin/claude"
+# alias claude-start='ANTHROPIC_API_KEY= specstory run claude -c "$HOME/.claude/local/claude --dangerously-skip-permissions"'
+
+alias claude-start="CLAUDE_NATIVE_CD=1 ANTHROPIC_API_KEY= $HOME/.local/bin/claude --dangerously-skip-permissions"
 alias codex-start="codex --dangerously-bypass-approvals-and-sandbox"
 
 # Tmux aliases
@@ -1273,23 +1287,55 @@ alias taskmaster='task-master'
 # ─────────────────────────────────────────────────────────────
 # Safely implement zoxide functionality with backwards compatibility
 if (( $+commands[zoxide] )); then
-    # eval "$(zoxide init zsh --hook pwd --cmd z)"
+    if [[ -n "${CLAUDE_NATIVE_CD:-}" ]]; then
+        # Claude session: keep native cd while still enabling zoxide via `z`
+        eval "$(zoxide init zsh --hook pwd --cmd z)"
 
-    eval "$(zoxide init zsh --hook pwd)"
+        alias zi="z -i"       # interactive mode
+        alias zz="z -"        # previous directory
+        alias zb="z .."       # parent directory
+        alias zc="z -c"       # children only
+        alias zh="z ~"        # home directory
 
-    # Custom aliases
-    #alias zi="z -i"       # interactive mode
-    alias zz="z -"        # previous directory
-    alias zb="z .."       # parent directory
-    alias zc="z -c"       # children only
-    alias zh="z ~"        # home directory
+        alias zdev="z ~/dev"
+        alias zdl="z ~/Downloads"
+        alias zdocs="z ~/Documents"
+    else
+        # Default shell behavior: zoxide overrides cd
+        eval "$(zoxide init zsh --hook pwd --cmd cd)"
 
-    # Quick jumps to common directories
-    alias zdev="z ~/dev"
-    alias zdown="z ~/Downloads"
-    alias zdocs="z ~/Documents"
+        alias zi="cd -i"       # interactive mode
+        alias zz="cd -"        # previous directory
+        alias zb="cd .."       # parent directory
+        alias zc="cd -c"       # children only
+        alias zh="cd ~"        # home directory
+
+        alias zdev="cd ~/dev"
+        alias zdl="cd ~/Downloads"
+        alias zdocs="cd ~/Documents"
+    fi
 fi
 
 
 fpath+=~/.zfunc; autoload -Uz compinit; compinit
 export PATH="$HOME/.local/bin:$PATH"
+
+# Task Master aliases added on 12/6/2025
+alias hamster='task-master'
+alias ham='task-master'
+
+
+# ─────────────────────────────────────────────────────────────
+# AI SETTINGS
+# ─────────────────────────────────────────────────────────────
+
+# Opencode
+export OPENCODE_EXPERIMENTAL='true'
+
+# Claude Code deferred MCP loading (added by Taskmaster)
+export ENABLE_EXPERIMENTAL_MCP_CLI='true'
+# gh wrapper to strip ANSI escape codes from PR titles/bodies/release notes
+alias gh='~/.local/bin/gh-clean'
+
+# Abacus AI 
+alias abacus="abacusai-app"
