@@ -571,6 +571,62 @@ export POSH_VI_MODE="INSERT"
 # Flag to prevent recursive calls to _update_vim_mode
 typeset -g VIM_MODE_UPDATING=0
 
+_zvm_mode_to_posh_mode() {
+    local current_zvm_mode="$1"
+    [[ -z "$current_zvm_mode" ]] && return 1
+
+    if [[ -n "${ZVM_MODE_NORMAL:-}" && "$current_zvm_mode" == "$ZVM_MODE_NORMAL" ]]; then
+        REPLY="NORMAL"
+    elif [[ -n "${ZVM_MODE_INSERT:-}" && "$current_zvm_mode" == "$ZVM_MODE_INSERT" ]]; then
+        REPLY="INSERT"
+    elif [[ -n "${ZVM_MODE_VISUAL:-}" && "$current_zvm_mode" == "$ZVM_MODE_VISUAL" ]]; then
+        REPLY="VISUAL"
+    elif [[ -n "${ZVM_MODE_VISUAL_LINE:-}" && "$current_zvm_mode" == "$ZVM_MODE_VISUAL_LINE" ]]; then
+        REPLY="V-LINE"
+    elif [[ -n "${ZVM_MODE_REPLACE:-}" && "$current_zvm_mode" == "$ZVM_MODE_REPLACE" ]]; then
+        REPLY="REPLACE"
+    else
+        REPLY="$current_zvm_mode"
+    fi
+
+    return 0
+}
+
+_sync_vim_mode_from_editor_state() {
+    local target_mode=""
+    local zvm_mode_mapped=""
+
+    if _zvm_mode_to_posh_mode "${ZVM_MODE:-}"; then
+        zvm_mode_mapped="$REPLY"
+    fi
+
+    # KEYMAP reflects live editor state and is less prone to timing lag.
+    case "${KEYMAP:-}" in
+        vicmd|viopp)
+            if [[ "$zvm_mode_mapped" == "REPLACE" ]]; then
+                target_mode="REPLACE"
+            else
+                target_mode="NORMAL"
+            fi
+            ;;
+        visual|vivis)
+            if [[ "$zvm_mode_mapped" == "V-LINE" ]]; then
+                target_mode="V-LINE"
+            else
+                target_mode="VISUAL"
+            fi
+            ;;
+        main|viins|"")
+            target_mode="INSERT"
+            ;;
+        *)
+            target_mode="${zvm_mode_mapped:-${POSH_VI_MODE:-INSERT}}"
+            ;;
+    esac
+
+    _update_vim_mode "$target_mode"
+}
+
 # Function to update cursor and mode and refresh prompt
 # function _update_vim_mode() {
 #     # Check if we're already updating to prevent recursion
@@ -620,6 +676,7 @@ function _update_vim_mode() {
     if (( VIM_MODE_UPDATING )); then return; fi
     VIM_MODE_UPDATING=1
     local target_mode="$1"
+    local mode_changed=0
 
     # Update cursor shape first
     case "$target_mode" in
@@ -629,18 +686,16 @@ function _update_vim_mode() {
             echo -ne '\e[2 q' ;; # Steady block (for NORMAL, VISUAL, etc.)
     esac
 
-    # Update POSH_VI_MODE only if it changed, then refresh prompt
+    # Update POSH_VI_MODE only if it changed.
     if [[ "$POSH_VI_MODE" != "$target_mode" ]]; then
         export POSH_VI_MODE="$target_mode"
+        mode_changed=1
         # echo "DEBUG: POSH_VI_MODE exported as $POSH_VI_MODE" >&2 # For debugging
-
-        # If Oh My Posh is active, trigger a prompt refresh.
-        # OMP's own hooks set by 'oh-my-posh init zsh' should handle the update.
-        if [[ -n "$POSH_SHELL_VERSION" ]] && (( $+commands[oh-my-posh] )); then
-            # echo "DEBUG: Calling zle reset-prompt for OMP" >&2 # For debugging
-            zle reset-prompt
-        fi
     fi
+
+    # Prompt redraw is handled by zsh-vi-mode reset-prompt flow.
+    (( mode_changed ))
+
     VIM_MODE_UPDATING=0
 }
 
@@ -653,26 +708,7 @@ function _update_vim_mode() {
 #
 # Define mode switching function
 function zvm_after_select_vi_mode() {
-    case $ZVM_MODE in
-        $ZVM_MODE_NORMAL)
-            _update_vim_mode "NORMAL"
-            ;;
-        $ZVM_MODE_INSERT)
-            _update_vim_mode "INSERT"
-            ;;
-        $ZVM_MODE_VISUAL)
-            _update_vim_mode "VISUAL"
-            ;;
-        $ZVM_MODE_VISUAL_LINE)
-            _update_vim_mode "V-LINE"
-            ;;
-        $ZVM_MODE_REPLACE)
-            _update_vim_mode "REPLACE"
-            ;;
-        *)
-            _update_vim_mode "$ZVM_MODE"  # Fallback if needed
-            ;;
-    esac
+    _sync_vim_mode_from_editor_state
 }
     
 # Handle key bindings after vi-mode initialization
@@ -705,6 +741,9 @@ function zvm_after_init() {
     bindkey -M viins '^?' backward-delete-char
     # bindkey -M viins '^n' expand-or-complete
     # bindkey -M viins '^p' reverse-menu-complete
+
+    # Ensure prompt/mode starts in sync.
+    _sync_vim_mode_from_editor_state
 }
 # else
 #     # Basic vi mode if plugin not available
@@ -796,6 +835,101 @@ zinit light junegunn/fzf
 # --- Syntax Highlighting ---
 # Load fast-syntax-highlighting late. `defer'3'` is typically safe.
 zinit light zdharma-continuum/fast-syntax-highlighting #defer'3'
+
+# Patch zsh-vi-mode's reset prompt widget:
+# - guard against non-numeric ZVM_POSTPONE_RESET_PROMPT (startup race edge case)
+# - re-render OMP prompt with current POSH_VI_MODE before redraw
+if (( $+functions[zvm_reset_prompt] )); then
+    # Patch zsh-vi-mode widget wrapper to avoid integer local collisions
+    # with escape-key payloads (e.g. ^[) during early interactive startup.
+    if (( $+functions[zvm_widget_wrapper] )); then
+      function zvm_widget_wrapper() {
+        local rawfunc=$1
+        local func=$2
+        local called=$3
+
+        $called || { $rawfunc "${@:4}" }
+        $func "${@:4}"
+        return $?
+      }
+    fi
+
+    function zvm_postpone_reset_prompt() {
+      local toggle=$1
+      local force=${2:-false}
+
+      if [[ "${ZVM_POSTPONE_RESET_PROMPT:-}" != <-> && "${ZVM_POSTPONE_RESET_PROMPT:-}" != -<-> ]]; then
+        ZVM_POSTPONE_RESET_PROMPT=-1
+      fi
+
+      if $force; then
+        ZVM_POSTPONE_RESET_PROMPT=1
+      fi
+
+      if $toggle; then
+        ZVM_POSTPONE_RESET_PROMPT=0
+      else
+        if (( ZVM_POSTPONE_RESET_PROMPT > 0 )); then
+          ZVM_POSTPONE_RESET_PROMPT=-1
+          zle reset-prompt
+        else
+          ZVM_POSTPONE_RESET_PROMPT=-1
+        fi
+      fi
+    }
+
+    function zvm_reset_prompt() {
+      if [[ "${ZVM_POSTPONE_RESET_PROMPT:-}" != <-> && "${ZVM_POSTPONE_RESET_PROMPT:-}" != -<-> ]]; then
+        ZVM_POSTPONE_RESET_PROMPT=-1
+      fi
+
+      if (( ZVM_POSTPONE_RESET_PROMPT >= 0 )); then
+        ZVM_POSTPONE_RESET_PROMPT=$((ZVM_POSTPONE_RESET_PROMPT + 1))
+        return
+      fi
+
+      if [[ $ZVM_RESET_PROMPT_DISABLED == true ]]; then
+        return
+      fi
+
+      if (( $+functions[_omp_get_prompt] )); then
+        local _omp_status_safe="${_omp_status:-0}"
+        local _omp_no_status_safe="${_omp_no_status:-true}"
+        local _omp_execution_time_safe="${_omp_execution_time:--1}"
+        local _omp_job_count_safe="${_omp_job_count:-0}"
+        local _omp_stack_count_safe="${_omp_stack_count:-0}"
+        local -a _omp_pipestatus_safe=()
+        local -a _omp_pipestatus_filtered=()
+        local ps
+        if (( ${+_omp_pipestatus} )); then
+          _omp_pipestatus_safe=("${_omp_pipestatus[@]}")
+        fi
+        for ps in "${_omp_pipestatus_safe[@]}"; do
+          [[ -n "$ps" ]] && _omp_pipestatus_filtered+=("$ps")
+        done
+        _omp_pipestatus_safe=("${_omp_pipestatus_filtered[@]}")
+        (( ${#_omp_pipestatus_safe[@]} )) || _omp_pipestatus_safe=("$_omp_status_safe")
+
+        local _omp_status="$_omp_status_safe"
+        local _omp_no_status="$_omp_no_status_safe"
+        local _omp_execution_time="$_omp_execution_time_safe"
+        local _omp_job_count="$_omp_job_count_safe"
+        local _omp_stack_count="$_omp_stack_count_safe"
+        local -a _omp_pipestatus=("${_omp_pipestatus_safe[@]}")
+
+        eval "$(_omp_get_prompt primary --eval)"
+      fi
+
+      local -i retval
+      if [[ -z "$rawfunc" ]]; then
+        zle .reset-prompt -- "$@"
+      else
+        $rawfunc -- "$@"
+      fi
+
+      return retval
+    }
+fi
 
 # ─────────────────────────────────────────────────────────────
 # OH-MY-POSH CONFIGURATION
