@@ -63,7 +63,7 @@ esac
 # ─────────────────────────────────────────────────────────────
 # INITIAL SETUP
 # ─────────────────────────────────────────────────────────────
-source ~/.zshenv
+# ~/.zshenv is loaded automatically by zsh for each shell.
 
 # ─────────────────────────────────────────────────────────────
 # CORE EXPORTS
@@ -351,8 +351,8 @@ if [[ "$OS_TYPE" == "macos" ]]; then
   # ollama
   _append_to_env "/usr/local/opt/ollama/bin" ":" "PATH"
 
-  # MacTex
-  eval "$(/usr/libexec/path_helper)"
+  # MacTeX binaries without reordering PATH via path_helper
+  [[ -d "/Library/TeX/texbin" ]] && _append_to_env "/Library/TeX/texbin" ":" "PATH"
 
   # jpeg
   _append_to_env "/usr/local/opt/jpeg/bin" ":" "PATH"
@@ -392,7 +392,7 @@ conda() {
         raspberrypi|linux)
             # Try several possible conda locations on Linux
             if [ -d "/opt/local/share/dev/toolchains/conda" ]; then
-                conda_pa:wth="/opt/local/share/dev/toolchains/conda"
+                conda_path="/opt/local/share/dev/toolchains/conda"
             elif [ -d "/usr/local/share/dev/toolchains/conda" ]; then
                 conda_path="/usr/local/share/dev/toolchains/conda" 
             elif [ -d "/opt/conda" ]; then
@@ -527,9 +527,18 @@ alias ..="cd .."
 alias ...="cd ../.."
 
 # Determine if 'ls' supports '--color' (GNU) or '-G' (BSD)
-local ls_cmd='ls'
-if GRC=$(which grc); then # Use grc if available
-    ls_cmd='grc --colour=auto ls'
+if (( $+commands[grc] )); then # Use grc if available
+    if ls --color=auto -d / >/dev/null 2>&1; then # GNU ls
+        alias ls='grc --colour=auto ls --color=auto -F'
+        alias l='grc --colour=auto ls -lAh --color=auto'
+        alias la='grc --colour=auto ls -A --color=auto'
+        alias ll='grc --colour=auto ls -lh --color=auto'
+    else # BSD ls (macOS default)
+        alias ls='grc --colour=auto ls -GF'
+        alias l='grc --colour=auto ls -lAh'
+        alias la='grc --colour=auto ls -A'
+        alias ll='grc --colour=auto ls -lh'
+    fi
 elif ls --color=auto -d / >/dev/null 2>&1; then # GNU ls
     alias ls='ls --color=auto -F' # -F adds indicators (/, *, @)
     alias l='ls -lAh --color=auto'
@@ -543,8 +552,8 @@ else # BSD ls (macOS default)
 fi
 # Add any other preferred aliases, e.g., grep
 alias grep='grep --color=auto'
-alias egrep='egrep --color=auto'
-alias fgrep='fgrep --color=auto'
+alias egrep='grep -E --color=auto'
+alias fgrep='grep -F --color=auto'
 
 # ─────────────────────────────────────────────────────────────
 # HISTORY CONFIGURATION
@@ -758,10 +767,10 @@ zinit snippet OMZP::git/git.plugin.zsh #defer'1'
 # zinit snippet OMZP::docker/docker.plugin.zsh #defer'1'
 
 # Resetting aliases for cp, mv, and rm
-unalias cp
-unalias mv
-unalias rm
-unalias gk
+unalias cp 2>/dev/null
+unalias mv 2>/dev/null
+unalias rm 2>/dev/null
+unalias gk 2>/dev/null
 
 # --- Core Functionality Plugins ---
 zinit light zsh-users/zsh-autosuggestions
@@ -1095,8 +1104,156 @@ if (( $+commands[nvim] )); then alias vim="nvim"; fi # Prefer nvim if available
 alias claude="$HOME/.local/bin/claude"
 # alias claude-start='ANTHROPIC_API_KEY= specstory run claude -c "$HOME/.claude/local/claude --dangerously-skip-permissions"'
 
-alias claude-start="CLAUDE_NATIVE_CD=1 ANTHROPIC_API_KEY= $HOME/.local/bin/claude --dangerously-skip-permissions"
-alias codex-start="codex --dangerously-bypass-approvals-and-sandbox"
+_print_ai_wrapper_help() {
+    local cmd_name="$1"
+    print -- "${cmd_name} wrapper options:"
+    print -- "  --project <query>   Resolve with zoxide and cd before launching ${cmd_name}."
+    print -- ""
+}
+
+clde() {
+    local project=""
+    local -a passthrough=()
+    local wants_help=0
+    local arg
+
+    while (( $# > 0 )); do
+        case "$1" in
+            --project)
+                if [[ -z "$2" ]]; then
+                    print -u2 -- "clde: --project requires a value"
+                    return 2
+                fi
+                if [[ -n "$project" ]]; then
+                    print -u2 -- "clde: --project can only be set once"
+                    return 2
+                fi
+                project="$2"
+                shift 2
+                ;;
+            --project=*)
+                if [[ -n "$project" ]]; then
+                    print -u2 -- "clde: --project can only be set once"
+                    return 2
+                fi
+                project="${1#--project=}"
+                if [[ -z "$project" ]]; then
+                    print -u2 -- "clde: --project requires a value"
+                    return 2
+                fi
+                shift
+                ;;
+            --)
+                passthrough+=("$1")
+                shift
+                passthrough+=("$@")
+                break
+                ;;
+            *)
+                passthrough+=("$1")
+                shift
+                ;;
+        esac
+    done
+
+    for arg in "${passthrough[@]}"; do
+        if [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
+            wants_help=1
+            break
+        fi
+    done
+
+    if (( wants_help )); then
+        _print_ai_wrapper_help "clde"
+    fi
+
+    if [[ -n "$project" && $wants_help -eq 0 ]]; then
+        local target_dir
+        if (( ! $+commands[zoxide] )); then
+            print -u2 -- "clde: --project requires zoxide"
+            return 1
+        fi
+        if ! target_dir="$(zoxide query -- "$project" 2>/dev/null)"; then
+            print -u2 -- "clde: project not found in zoxide: $project"
+            return 1
+        fi
+        builtin cd -- "$target_dir" || return 1
+    fi
+
+    CLAUDE_NATIVE_CD=1 ANTHROPIC_API_KEY= "$HOME/.local/bin/claude" --dangerously-skip-permissions "${passthrough[@]}"
+}
+
+codx() {
+    local project=""
+    local -a passthrough=()
+    local wants_help=0
+    local arg
+
+    while (( $# > 0 )); do
+        case "$1" in
+            --project)
+                if [[ -z "$2" ]]; then
+                    print -u2 -- "codx: --project requires a value"
+                    return 2
+                fi
+                if [[ -n "$project" ]]; then
+                    print -u2 -- "codx: --project can only be set once"
+                    return 2
+                fi
+                project="$2"
+                shift 2
+                ;;
+            --project=*)
+                if [[ -n "$project" ]]; then
+                    print -u2 -- "codx: --project can only be set once"
+                    return 2
+                fi
+                project="${1#--project=}"
+                if [[ -z "$project" ]]; then
+                    print -u2 -- "codx: --project requires a value"
+                    return 2
+                fi
+                shift
+                ;;
+            --)
+                passthrough+=("$1")
+                shift
+                passthrough+=("$@")
+                break
+                ;;
+            *)
+                passthrough+=("$1")
+                shift
+                ;;
+        esac
+    done
+
+    for arg in "${passthrough[@]}"; do
+        if [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
+            wants_help=1
+            break
+        fi
+    done
+
+    if (( wants_help )); then
+        _print_ai_wrapper_help "codx"
+    fi
+
+    if [[ -n "$project" && $wants_help -eq 0 ]]; then
+        local target_dir
+        if (( ! $+commands[zoxide] )); then
+            print -u2 -- "codx: --project requires zoxide"
+            return 1
+        fi
+        if ! target_dir="$(zoxide query -- "$project" 2>/dev/null)"; then
+            print -u2 -- "codx: project not found in zoxide: $project"
+            return 1
+        fi
+        builtin cd -- "$target_dir" || return 1
+    fi
+
+    codex --dangerously-bypass-approvals-and-sandbox "${passthrough[@]}"
+}
 
 # Tmux aliases
 alias tmux_main="tmux new-session -ADs main"
@@ -1166,7 +1323,8 @@ fi
 # Add ZDOTDIR specific paths (your custom functions/completions)
 _set_fpath_from_candidates \
   "$ZDOTDIR/functions" \
-  "$ZDOTDIR/completions"
+  "$ZDOTDIR/completions" \
+  "$HOME/.zfunc"
 
 # Add ZSH_CONFIG_DIR if it's different from ZDOTDIR and used for more functions/completions
 if [[ -n "$ZSH_CONFIG_DIR" && "$ZSH_CONFIG_DIR" != "$ZDOTDIR" ]]; then
@@ -1201,22 +1359,22 @@ ZSH_COMPDUMP="${compdump_dir}/.zcompdump-${HOST}-${ZSH_VERSION}"
 # echo "Final fpath before compinit:" >&2
 # for _fp_entry in $fpath; do echo "  $_fp_entry" >&2; done
 
-# Initialize completion system
-compinit -i -C -d "$ZSH_COMPDUMP"
-
-# For debugging: Check if compaudit is available AFTER the first compinit
+# For debugging: Check if compaudit is available
 # if type compaudit >/dev/null 2>&1; then
-#     echo "DEBUG: compaudit IS available after first compinit." >&2
+#     echo "DEBUG: compaudit IS available." >&2
 # else
-#     echo "DEBUG: compaudit IS NOT available after first compinit. Critical error." >&2
+#     echo "DEBUG: compaudit IS NOT available. Critical error." >&2
 # fi
 
-# Recompile if compaudit finds issues or dump file is invalid/missing
-# <<< MODIFIED LINE BELOW >>> Use 'compaudit' directly
+# Initialize completion system once.
+local -a compinit_args
 if [[ ! -s "$ZSH_COMPDUMP" ]] || compaudit | grep -q '.'; then
-  echo "Compdump invalid or compaudit found issues. Recompiling..." >&2
-  compinit -i -u -d "$ZSH_COMPDUMP"
+  echo "Compdump invalid or compaudit found issues. Initializing with -u..." >&2
+  compinit_args=(-i -u -d "$ZSH_COMPDUMP")
+else
+  compinit_args=(-i -C -d "$ZSH_COMPDUMP")
 fi
+compinit "${compinit_args[@]}"
 
 # Completion cache configuration
 zstyle ':completion:*' use-cache on
@@ -1317,7 +1475,6 @@ if (( $+commands[zoxide] )); then
 fi
 
 
-fpath+=~/.zfunc; autoload -Uz compinit; compinit
 export PATH="$HOME/.local/bin:$PATH"
 
 # Task Master aliases added on 12/6/2025
