@@ -72,6 +72,9 @@ export CASE_SENSITIVE="false"
 export HYPHEN_INSENSITIVE="true"
 export COMPLETION_WAITING_DOTS="true"
 
+# w3m XDG location
+export W3M_DIR="$XDG_CONFIG_HOME/w3m"
+
 # ─────────────────────────────────────────────────────────────
 # PLUGINS REGISTRY
 # ─────────────────────────────────────────────────────────────
@@ -509,47 +512,23 @@ setopt HIST_VERIFY
 HISTORY_SUBSTRING_SEARCH_PREFIXED=1
 
 # ─────────────────────────────────────────────────────────────
-# LS COLORS & CORE ALIASES ( <<< NEW SECTION >>> )
+# EZA THEME & CORE ALIASES ( <<< NEW SECTION >>> )
 # ─────────────────────────────────────────────────────────────
-# Setup LS_COLORS using dircolors if available
-if (( $+commands[dircolors] )); then
-  # Example using standard theme:
-  eval "$(dircolors -b)"
-  # Example using custom file (if you have one):
-  # [[ -f "$XDG_CONFIG_HOME/dircolors/config" ]] && eval "$(dircolors -b "$XDG_CONFIG_HOME/dircolors/config")"
-
-  # Optional: Use LS_COLORS for Zsh completion coloring
-  zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+# Use vivid for LS_COLORS (shared by eza + completion).
+# NOTE: LS_COLORS overrides eza theme.
+if (( $+commands[vivid] )); then
+  export LS_COLORS="$(vivid -m 8-bit generate catppuccin-mocha)"
+else
+  unset LS_COLORS
 fi
+unset EZA_COLORS
+# macOS default config dir differs; force eza to use ~/.config/eza/theme.yml
+export EZA_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/eza"
 
-# Basic Aliases including LS coloring based on OS
+# Basic Aliases
 alias ..="cd .."
 alias ...="cd ../.."
 
-# Determine if 'ls' supports '--color' (GNU) or '-G' (BSD)
-if (( $+commands[grc] )); then # Use grc if available
-    if ls --color=auto -d / >/dev/null 2>&1; then # GNU ls
-        alias ls='grc --colour=auto ls --color=auto -F'
-        alias l='grc --colour=auto ls -lAh --color=auto'
-        alias la='grc --colour=auto ls -A --color=auto'
-        alias ll='grc --colour=auto ls -lh --color=auto'
-    else # BSD ls (macOS default)
-        alias ls='grc --colour=auto ls -GF'
-        alias l='grc --colour=auto ls -lAh'
-        alias la='grc --colour=auto ls -A'
-        alias ll='grc --colour=auto ls -lh'
-    fi
-elif ls --color=auto -d / >/dev/null 2>&1; then # GNU ls
-    alias ls='ls --color=auto -F' # -F adds indicators (/, *, @)
-    alias l='ls -lAh --color=auto'
-    alias la='ls -A --color=auto'
-    alias ll='ls -lh --color=auto' # long format, human-readable sizes
-else # BSD ls (macOS default)
-    alias ls='ls -GF' # -G enables color, -F adds indicators
-    alias l='ls -lAh' # -G implicit via ls alias
-    alias la='ls -A'  # -G implicit
-    alias ll='ls -lh' # -G implicit
-fi
 # Add any other preferred aliases, e.g., grep
 alias grep='grep --color=auto'
 alias egrep='grep -E --color=auto'
@@ -1520,8 +1499,9 @@ zstyle ':completion:*:*:*:*:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
 zstyle ':completion:*' list-suffixes true
 zstyle ':completion:*' auto-description 'specify: %d'
-if (( $+commands[dircolors] )) && [[ -n "$LS_COLORS" ]]; then
-    zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+# Completion colors from LS_COLORS when available
+if [[ -n "$LS_COLORS" ]]; then
+  zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 fi
 
 # Lazy loading of specific completion functions (your existing settings)
@@ -1559,6 +1539,50 @@ zle -N down-line-or-beginning-search
 # Load custom local configuration if it exists
 # [[ -f $ZDOTDIR/zshrc.local ]] && source $ZDOTDIR/zshrc.local
 _source_if_exists "$ZDOTDIR/zshrc.local"
+
+# ─────────────────────────────────────────────────────────────
+# LS/EZA ALIASES (FINAL OVERRIDES)
+# ─────────────────────────────────────────────────────────────
+if (( $+commands[eza] )); then
+  # eza equivalents for common ls aliases (incl. plugin-provided)
+  alias ls='eza --color=auto --icons=auto --group-directories-first --classify=auto'
+  alias l='eza -l --color=auto --icons=auto --group-directories-first --classify=auto'
+  alias la='eza -lA --color=auto --icons=auto --group-directories-first --classify=auto'
+  alias ll='eza -l --color=auto --icons=auto --group-directories-first --classify=auto'
+  alias lr='eza -R --sort=modified --color=auto --icons=auto --group-directories-first --classify=auto'
+  alias lt='eza -l --sort=modified --color=auto --icons=auto --group-directories-first --classify=auto'
+  alias ldot='eza -d .* --color=auto --icons=auto --group-directories-first --classify=auto'
+  alias lS='eza -1 --sort=size --color=auto --icons=auto --group-directories-first --classify=auto'
+  alias lart='eza -1a --sort=changed --reverse --color=auto --icons=auto --group-directories-first --classify=auto'
+  alias lrt='eza -1 --sort=changed --reverse --color=auto --icons=auto --group-directories-first --classify=auto'
+  alias lsr='eza -lAR --color=auto --icons=auto --group-directories-first --classify=auto'
+  alias lsn='eza -1 --color=auto --icons=auto --group-directories-first --classify=auto'
+else
+  # Fallback: only set the core ls aliases defined in this zshrc
+  if (( $+commands[grc] )); then # Use grc if available
+    if ls --color=auto -d / >/dev/null 2>&1; then # GNU ls
+      alias ls='grc --colour=auto ls --color=auto -F'
+      alias l='grc --colour=auto ls -lAh --color=auto'
+      alias la='grc --colour=auto ls -A --color=auto'
+      alias ll='grc --colour=auto ls -lh --color=auto'
+    else # BSD ls (macOS default)
+      alias ls='grc --colour=auto ls -GF'
+      alias l='grc --colour=auto ls -lAh'
+      alias la='grc --colour=auto ls -A'
+      alias ll='grc --colour=auto ls -lh'
+    fi
+  elif ls --color=auto -d / >/dev/null 2>&1; then # GNU ls
+    alias ls='ls --color=auto -F' # -F adds indicators (/, *, @)
+    alias l='ls -lAh --color=auto'
+    alias la='ls -A --color=auto'
+    alias ll='ls -lh --color=auto' # long format, human-readable sizes
+  else # BSD ls (macOS default)
+    alias ls='ls -GF' # -G enables color, -F adds indicators
+    alias l='ls -lAh' # -G implicit via ls alias
+    alias la='ls -A'  # -G implicit
+    alias ll='ls -lh' # -G implicit
+  fi
+fi
 
 # For profiling, uncomment:
 # zprof
