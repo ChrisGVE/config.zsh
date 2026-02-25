@@ -517,7 +517,7 @@ HISTORY_SUBSTRING_SEARCH_PREFIXED=1
 # Use vivid for LS_COLORS (shared by eza + completion).
 # NOTE: LS_COLORS overrides eza theme.
 if (( $+commands[vivid] )); then
-  export LS_COLORS="$(vivid -m 8-bit generate catppuccin-mocha)"
+  export LS_COLORS="$(vivid -m 8-bit generate catppuccin-mocha | tr -d '\r')"
 else
   unset LS_COLORS
 fi
@@ -528,6 +528,8 @@ export EZA_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/eza"
 # Basic Aliases
 alias ..="cd .."
 alias ...="cd ../.."
+(( $+commands[chafa] )) && alias img='chafa'
+(( $+commands[elinks] )) && alias br='elinks'
 
 # Add any other preferred aliases, e.g., grep
 alias grep='grep --color=auto'
