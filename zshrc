@@ -1620,6 +1620,26 @@ if (( $+commands[zoxide] )); then
         # Default shell behavior: zoxide overrides cd
         eval "$(zoxide init zsh --hook pwd --cmd cd)"
 
+        # Allow `cd -N` to mean "go up N directories" while keeping zoxide behavior.
+        function cd() {
+            if [[ "$#" -eq 1 && "$1" =~ ^-[0-9]+$ ]]; then
+                local n="${1#-}"
+                if [[ "$n" -eq 1 ]]; then
+                    __zoxide_cd ..
+                    return
+                elif [[ "$n" -gt 1 ]]; then
+                    local up=""
+                    local i
+                    for (( i=0; i<n; i++ )); do
+                        up+="../"
+                    done
+                    __zoxide_cd "${up%/}"
+                    return
+                fi
+            fi
+            __zoxide_z "$@"
+        }
+
         alias zi="cd -i"       # interactive mode
         alias zz="cd -"        # previous directory
         alias zb="cd .."       # parent directory
