@@ -83,6 +83,25 @@ export W3M_DIR="$XDG_CONFIG_HOME/w3m"
 # ─────────────────────────────────────────────────────────────
 # HELPER FUNCTIONS
 # ─────────────────────────────────────────────────────────────
+TRAPWINCH() {
+  if [[ -o zle ]]; then
+    if (( $+commands[tput] )); then
+      export POSH_WIDTH=$(tput cols)
+    else
+      export POSH_WIDTH=${COLUMNS:-0}
+    fi
+    if zle -l zvm_reset_prompt >/dev/null 2>&1; then
+      ZVM_POSTPONE_RESET_PROMPT=-1
+      zle zvm_reset_prompt
+    else
+      zle reset-prompt
+    fi
+  fi
+}
+
+
+
+
 function_exists() {
     declare -f -F $1 > /dev/null
     return $?
@@ -598,7 +617,15 @@ _sync_vim_mode_from_editor_state() {
             fi
             ;;
         main|viins|"")
-            target_mode="INSERT"
+            # If zsh-vi-mode reports a non-insert mode, trust it over KEYMAP.
+            case "$zvm_mode_mapped" in
+                NORMAL|REPLACE|VISUAL|V-LINE)
+                    target_mode="$zvm_mode_mapped"
+                    ;;
+                *)
+                    target_mode="INSERT"
+                    ;;
+            esac
             ;;
         *)
             target_mode="${zvm_mode_mapped:-${POSH_VI_MODE:-INSERT}}"
@@ -607,6 +634,7 @@ _sync_vim_mode_from_editor_state() {
 
     _update_vim_mode "$target_mode"
 }
+
 
 # Function to update cursor and mode and refresh prompt
 # function _update_vim_mode() {
@@ -691,6 +719,28 @@ function _update_vim_mode() {
 function zvm_after_select_vi_mode() {
     _sync_vim_mode_from_editor_state
 }
+
+
+function zle-keymap-select() {
+    _sync_vim_mode_from_editor_state
+}
+zle -N zle-keymap-select
+
+function zle-line-init() {
+    # Keep keymap consistent with zsh-vi-mode's current mode after Enter.
+    case "${ZVM_MODE:-}" in
+        ${ZVM_MODE_NORMAL:-n}|${ZVM_MODE_VISUAL:-v}|${ZVM_MODE_VISUAL_LINE:-V}|${ZVM_MODE_REPLACE:-R})
+            zle -K vicmd
+            ;;
+        *)
+            zle -K viins
+            ;;
+    esac
+    _sync_vim_mode_from_editor_state
+}
+zle -N zle-line-init
+
+
     
 # Handle key bindings after vi-mode initialization
 function zvm_after_init() {
@@ -1367,7 +1417,7 @@ codx() {
         builtin cd -- "$target_dir" || return 1
     fi
 
-    codex --dangerously-bypass-approvals-and-sandbox "${passthrough[@]}"
+    codex "${passthrough[@]}"
 }
 
 # Tmux aliases
