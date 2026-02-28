@@ -52,9 +52,6 @@ blocks:
         template: " {{.Icon}} "
         foreground: p:base
         background: p:subtext1
-        cache:
-          cache: 24h
-          strategy: device
       # full size vi-mode segment
       - type: text
         min_width: 120
@@ -84,9 +81,9 @@ blocks:
         foreground: red
         powerline_symbol: 
         background: p:surface1
-        style: powerline
+        style: diamond
         foreground_templates:
-          - '{{if contains "NORMAL" .Env.POSH_VI_MODE}}p:blue{{end}}'
+          - "{}p:blue{{end}}"
           - '{{if contains "INSERT" .Env.POSH_VI_MODE}}p:green{{end}}'
           - '{{if contains "VISUAL" .Env.POSH_VI_MODE}}p:mauve{{end}}'
           - '{{if contains "V-LINE" .Env.POSH_VI_MODE}}p:mauve{{end}}'
