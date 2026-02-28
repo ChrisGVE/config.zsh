@@ -33,9 +33,6 @@ palette:
   white: "#FFFFFF"
   yellow: "#f9e2af"
 
-var:
-  TermWidthCutOff: 120
-
 transient_prompt:
   template: ">"
   foreground: p:lavender
@@ -49,6 +46,7 @@ blocks:
     segments:
       # Environment icon
       - type: os
+        min_width: 120
         style: diamond
         powerline_symbol: 
         template: " {{.Icon}} "
@@ -57,7 +55,7 @@ blocks:
         cache:
           cache: 24h
           strategy: device
-      # Auto adjusting vi-mode segment
+      # full size vi-mode segment
       - type: text
         min_width: 120
         template: "{{ if .Env.POSH_VI_MODE }} <b>{{ .Env.POSH_VI_MODE }}</b> {{ end }}"
@@ -71,7 +69,7 @@ blocks:
           - '{{if contains "VISUAL" .Env.POSH_VI_MODE}}p:mauve{{end}}'
           - '{{if contains "V-LINE" .Env.POSH_VI_MODE}}p:mauve{{end}}'
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
-      # Current folder
+      # short vi-mode segment
       - type: text
         max_width: 119
         template: >
@@ -93,7 +91,7 @@ blocks:
           - '{{if contains "VISUAL" .Env.POSH_VI_MODE}}p:mauve{{end}}'
           - '{{if contains "V-LINE" .Env.POSH_VI_MODE}}p:mauve{{end}}'
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
-      # Current folder
+      # Current full-size folder
       - type: path
         min_width: 120
         options:
@@ -113,14 +111,15 @@ blocks:
           - '{{if contains "VISUAL" .Env.POSH_VI_MODE}}p:mauve{{end}}'
           - '{{if contains "V-LINE" .Env.POSH_VI_MODE}}p:mauve{{end}}'
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
+      # Short current folder segment
       - type: path
         max_width: 119
         options:
-          folder_icon: ....
+          #          folder_icon: ....
           home_icon: "~"
-          max_depth: 1
+          max_depth: 2
           max_width: 10
-          style: agnoster_short
+          style: agnoster
         template: " {{ .Path }} "
         foreground: p:text
         powerline_symbol: 
@@ -132,6 +131,7 @@ blocks:
           - '{{if contains "VISUAL" .Env.POSH_VI_MODE}}p:mauve{{end}}'
           - '{{if contains "V-LINE" .Env.POSH_VI_MODE}}p:mauve{{end}}'
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
+      # Full size git-segment
       - type: git
         min_width: 120
         options:
@@ -155,6 +155,7 @@ blocks:
           - "{{ if and (gt .Ahead 0) (gt .Behind 0) }}p:maroon{{ end }}"
           - "{{ if gt .Ahead 0 }}p:mauve{{ end }}"
           - "{{ if gt .Behind 0 }}p:mauve{{ end }}"
+      # Short git segment
       - type: git
         options:
           fetch_status: true
@@ -175,6 +176,7 @@ blocks:
     alignment: left
     overflow: hide
     segments:
+      # Status of the last execution
       - type: status
         options:
           always_enabled: true
@@ -185,22 +187,111 @@ blocks:
         foreground_templates:
           - "{{if gt .Code 0 }}p:red{{ end }}"
           - "{{if eq .Code 0 }}p:green{{ end }}"
+      # Execution time
       - type: executiontime
         options:
           always_enabled: false
           style: round
           threshold: 5000
         leading_diamond: 
+        min_width: 120
         template: " {{ .FormattedMs }}  "
         foreground: p:text
         background: p:mauve
         style: diamond
-      - type: python
+      # Node segment
+      - type: node
+        min_width: 120
         options:
-          display_mode: always
-          home_enabled: true
+          display_mode: context
+          home_enabled: false
         leading_diamond: 
-        template: " {{ if .Venv }}{{ .Venv }}{{ end }}  "
+        template: " {{ if .PackageManagerIcon }}{{ .PackageManagerIcon }} {{ end }}{{ .Full }}  "
+        foreground: p:text
+        style: diamond
+        background_templates:
+          - "{{if .Env.POSH_VI_MODE }}{{else}}p:blue{{end}}"
+          - '{{if contains "NORMAL" .Env.POSH_VI_MODE}}p:blue{{end}}'
+          - '{{if contains "INSERT" .Env.POSH_VI_MODE}}p:green{{end}}'
+          - '{{if contains "VISUAL" .Env.POSH_VI_MODE}}p:mauve{{end}}'
+          - '{{if contains "V-LINE" .Env.POSH_VI_MODE}}p:mauve{{end}}'
+          - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
+      # zig segment
+      - type: zig
+        min_width: 120
+        options:
+          display_mode: context
+          home_enabled: false
+        leading_diamond: 
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }}  "
+        foreground: p:text
+        style: diamond
+        background_templates:
+          - "{{if .Env.POSH_VI_MODE }}{{else}}p:blue{{end}}"
+          - '{{if contains "NORMAL" .Env.POSH_VI_MODE}}p:blue{{end}}'
+          - '{{if contains "INSERT" .Env.POSH_VI_MODE}}p:green{{end}}'
+          - '{{if contains "VISUAL" .Env.POSH_VI_MODE}}p:mauve{{end}}'
+          - '{{if contains "V-LINE" .Env.POSH_VI_MODE}}p:mauve{{end}}'
+          - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
+      # Lua segment
+      - type: lua
+        min_width: 120
+        options:
+          display_mode: context
+          home_enabled: false
+        leading_diamond: 
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }}  "
+        foreground: p:text
+        style: diamond
+        background_templates:
+          - "{{if .Env.POSH_VI_MODE }}{{else}}p:blue{{end}}"
+          - '{{if contains "NORMAL" .Env.POSH_VI_MODE}}p:blue{{end}}'
+          - '{{if contains "INSERT" .Env.POSH_VI_MODE}}p:green{{end}}'
+          - '{{if contains "VISUAL" .Env.POSH_VI_MODE}}p:mauve{{end}}'
+          - '{{if contains "V-LINE" .Env.POSH_VI_MODE}}p:mauve{{end}}'
+          - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
+      # Swift segment
+      - type: swift
+        min_width: 120
+        options:
+          display_mode: context
+          home_enabled: false
+        leading_diamond: 
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }}  "
+        foreground: p:text
+        style: diamond
+        background_templates:
+          - "{{if .Env.POSH_VI_MODE }}{{else}}p:blue{{end}}"
+          - '{{if contains "NORMAL" .Env.POSH_VI_MODE}}p:blue{{end}}'
+          - '{{if contains "INSERT" .Env.POSH_VI_MODE}}p:green{{end}}'
+          - '{{if contains "VISUAL" .Env.POSH_VI_MODE}}p:mauve{{end}}'
+          - '{{if contains "V-LINE" .Env.POSH_VI_MODE}}p:mauve{{end}}'
+          - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
+      # Rust segment
+      - type: rust
+        min_width: 120
+        options:
+          display_mode: context
+          home_enabled: false
+        leading_diamond: 
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }}  "
+        foreground: p:text
+        style: diamond
+        background_templates:
+          - "{{if .Env.POSH_VI_MODE }}{{else}}p:blue{{end}}"
+          - '{{if contains "NORMAL" .Env.POSH_VI_MODE}}p:blue{{end}}'
+          - '{{if contains "INSERT" .Env.POSH_VI_MODE}}p:green{{end}}'
+          - '{{if contains "VISUAL" .Env.POSH_VI_MODE}}p:mauve{{end}}'
+          - '{{if contains "V-LINE" .Env.POSH_VI_MODE}}p:mauve{{end}}'
+          - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
+      # Python segment
+      - type: python
+        min_width: 120
+        options:
+          display_mode: context
+          home_enabled: false
+        leading_diamond: 
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ if .Venv }}{{ .Venv }}{{ end }}{{ .Full }}{{ end }}  "
         foreground: p:text
         style: diamond
         background_templates:
