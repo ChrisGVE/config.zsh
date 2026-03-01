@@ -196,6 +196,23 @@ blocks:
         foreground: p:text
         background: p:mauve
         style: diamond
+      # Go segment
+      - type: node
+        min_width: 120
+        options:
+          display_mode: context
+          home_enabled: false
+        leading_diamond: 
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }}  "
+        foreground: p:text
+        style: diamond
+        background_templates:
+          - "{{if .Env.POSH_VI_MODE }}{{else}}p:blue{{end}}"
+          - '{{if contains "NORMAL" .Env.POSH_VI_MODE}}p:blue{{end}}'
+          - '{{if contains "INSERT" .Env.POSH_VI_MODE}}p:green{{end}}'
+          - '{{if contains "VISUAL" .Env.POSH_VI_MODE}}p:mauve{{end}}'
+          - '{{if contains "V-LINE" .Env.POSH_VI_MODE}}p:mauve{{end}}'
+          - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
       # Node segment
       - type: node
         min_width: 120
