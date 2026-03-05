@@ -46,7 +46,7 @@ blocks:
     segments:
       # Environment icon
       - type: os
-        min_width: 120
+        min_width: 100
         style: diamond
         powerline_symbol: 
         template: " {{.Icon}} "
@@ -54,7 +54,7 @@ blocks:
         background: p:subtext1
       # full size vi-mode segment
       - type: text
-        min_width: 120
+        min_width: 100
         template: "{{ if .Env.POSH_VI_MODE }} <b>{{ .Env.POSH_VI_MODE }}</b> {{ end }}"
         foreground: red
         powerline_symbol: 
@@ -68,7 +68,7 @@ blocks:
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
       # short vi-mode segment
       - type: text
-        max_width: 119
+        max_width: 99
         template: >
           {{- if .Env.POSH_VI_MODE -}}
             {{- if contains "V-LINE" .Env.POSH_VI_MODE -}} <b> VL </b>
@@ -90,7 +90,7 @@ blocks:
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
       # Current full-size folder
       - type: path
-        min_width: 120
+        min_width: 100
         options:
           folder_icon: ....
           home_icon: "~"
@@ -110,7 +110,7 @@ blocks:
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
       # Short current folder segment
       - type: path
-        max_width: 119
+        max_width: 99
         options:
           #          folder_icon: ....
           home_icon: "~"
@@ -130,7 +130,7 @@ blocks:
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
       # Full size git-segment
       - type: git
-        min_width: 120
+        min_width: 100
         options:
           branch_icon: "  "
           cherry_pick_icon: " "
@@ -157,7 +157,7 @@ blocks:
         options:
           fetch_status: true
           fetch_upstream_icon: true
-        max_width: 119
+        max_width: 99
         template: "{{ .UpstreamIcon }} "
         foreground: p:text
         powerline_symbol: 
@@ -191,14 +191,14 @@ blocks:
           style: round
           threshold: 5000
         leading_diamond: 
-        min_width: 120
+        min_width: 100
         template: " {{ .FormattedMs }}  "
         foreground: p:text
         background: p:mauve
         style: diamond
       # Go segment
       - type: node
-        min_width: 120
+        min_width: 100
         options:
           display_mode: context
           home_enabled: false
@@ -215,7 +215,7 @@ blocks:
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
       # Node segment
       - type: node
-        min_width: 120
+        min_width: 100
         options:
           display_mode: context
           home_enabled: false
@@ -232,7 +232,7 @@ blocks:
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
       # zig segment
       - type: zig
-        min_width: 120
+        min_width: 100
         options:
           display_mode: context
           home_enabled: false
@@ -249,7 +249,7 @@ blocks:
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
       # Lua segment
       - type: lua
-        min_width: 120
+        min_width: 100
         options:
           display_mode: context
           home_enabled: false
@@ -266,7 +266,7 @@ blocks:
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
       # Swift segment
       - type: swift
-        min_width: 120
+        min_width: 100
         options:
           display_mode: context
           home_enabled: false
@@ -283,7 +283,7 @@ blocks:
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
       # Rust segment
       - type: rust
-        min_width: 120
+        min_width: 100
         options:
           display_mode: context
           home_enabled: false
@@ -300,7 +300,7 @@ blocks:
           - '{{if contains "REPLACE" .Env.POSH_VI_MODE}}p:red{{end}}'
       # Python segment
       - type: python
-        min_width: 120
+        min_width: 100
         options:
           display_mode: context
           home_enabled: false
