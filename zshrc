@@ -1736,4 +1736,4 @@ export ENABLE_EXPERIMENTAL_MCP_CLI='true'
 alias gh='~/.local/bin/gh-clean'
 
 # Abacus AI 
-alias abacus="abacusai-app"
+alias abacus="ABACUS_API_KEY= abacusai"
