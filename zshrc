@@ -1069,7 +1069,7 @@ export OLLAMA_API_BASE=http://localhost:11434
 # PYTHON CONFIGURATION
 # ─────────────────────────────────────────────────────────────
 export PYENV_ROOT="$HOME/.pyenv"
-[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+[[ -d $PYENV_ROOT/bin ]] && _prefix_to_env "$PYENV_ROOT/bin" ":" "PATH"
 # Auto-clean stale pyenv rehash lock (noclobber lock left by killed process)
 if [[ -f "$PYENV_ROOT/shims/.pyenv-shim" ]]; then
   if ! pgrep -f "pyenv-rehash" > /dev/null 2>&1; then
